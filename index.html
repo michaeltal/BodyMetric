@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Body Composition Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Header Section -->
+    <header class="header">
+      <div class="container">
+        <div class="flex justify-between items-center py-16">
+          <h1>Body Composition Tracker</h1>
+          <div class="current-date" id="currentDate"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content container">
+      <!-- Data Entry Form -->
+      <section class="section data-entry-section">
+        <div class="card">
+          <div class="card__header">
+            <h2>Add New Measurement</h2>
+          </div>
+          <div class="card__body">
+            <form id="measurementForm" class="measurement-form">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="measurementDate" class="form-label">Date</label>
+                  <input type="date" id="measurementDate" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                  <label for="weight" class="form-label">Weight</label>
+                  <div class="input-group">
+                    <input type="number" id="weight" class="form-control" step="0.1" min="30" max="300" required>
+                    <div class="unit-toggle">
+                      <button type="button" id="weightUnitToggle" class="btn btn--sm btn--secondary">kg</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="bodyFat" class="form-label">Body Fat %</label>
+                  <input type="number" id="bodyFat" class="form-control" step="0.1" min="5" max="50" required>
+                </div>
+
+                <div class="form-group">
+                  <label for="leanMass" class="form-label">Lean Muscle Mass</label>
+                  <div class="input-group">
+                    <input type="number" id="leanMass" class="form-control" step="0.1" min="20" max="200" required>
+                    <div class="unit-toggle">
+                      <button type="button" id="leanMassUnitToggle" class="btn btn--sm btn--secondary">kg</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-actions mt-8">
+                <button type="submit" class="btn btn--primary">Add Measurement</button>
+                <button type="reset" class="btn btn--secondary">Clear Form</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Current Stats Section -->
+      <section class="section stats-section">
+        <h2>Current Stats</h2>
+        <div class="stats-grid">
+          <div class="card stat-card">
+            <div class="card__body">
+              <div class="stat-title">Current Weight</div>
+              <div class="stat-value" id="currentWeight">--.-</div>
+              <div class="stat-unit" id="weightUnit">kg</div>
+              <div class="stat-trend" id="weightTrend"></div>
+            </div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="card__body">
+              <div class="stat-title">Body Fat %</div>
+              <div class="stat-value" id="currentBodyFat">--.-%</div>
+              <div class="stat-unit">%</div>
+              <div class="stat-trend" id="bodyFatTrend"></div>
+            </div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="card__body">
+              <div class="stat-title">Lean Muscle Mass</div>
+              <div class="stat-value" id="currentLeanMass">--.-</div>
+              <div class="stat-unit" id="leanMassUnit">kg</div>
+              <div class="stat-trend" id="leanMassTrend"></div>
+            </div>
+          </div>
+
+          <div class="card stat-card">
+            <div class="card__body">
+              <div class="stat-title">BMI</div>
+              <div class="stat-value" id="currentBMI">--.-</div>
+              <div class="stat-unit">kg/m²</div>
+              <div class="stat-category" id="bmiCategory">--</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Charts Section -->
+      <section class="section charts-section">
+        <h2>Progress Charts</h2>
+        <div class="charts-container">
+          <div class="chart-wrapper">
+            <h3>Weight Trends</h3>
+            <div class="chart-container">
+              <canvas id="weightChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-wrapper">
+            <h3>Body Fat % Trends</h3>
+            <div class="chart-container">
+              <canvas id="bodyFatChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-wrapper">
+            <h3>Lean Muscle Mass Trends</h3>
+            <div class="chart-container">
+              <canvas id="leanMassChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Data Table Section -->
+      <section class="section data-table-section">
+        <div class="card">
+          <div class="card__header">
+            <h2>Measurement History</h2>
+            <div class="table-controls">
+              <div class="search-box">
+                <input type="text" id="tableSearch" class="form-control" placeholder="Search...">
+              </div>
+              <div class="export-btn">
+                <button id="exportBtn" class="btn btn--secondary btn--sm">Export CSV</button>
+                <label for="importInput" class="btn btn--secondary btn--sm">Import CSV</label>
+                <input type="file" id="importInput" accept=".csv" hidden>
+              </div>
+            </div>
+          </div>
+          <div class="card__body">
+            <div class="table-responsive">
+              <table class="data-table" id="measurementsTable">
+                <thead>
+                  <tr>
+                    <th data-sort="date">Date <span class="sort-icon">↕</span></th>
+                    <th data-sort="weight">Weight <span class="sort-icon">↕</span></th>
+                    <th data-sort="bodyFat">Body Fat % <span class="sort-icon">↕</span></th>
+                    <th data-sort="leanMass">Lean Mass <span class="sort-icon">↕</span></th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="tableBody">
+                  <!-- Table data will be populated by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+            <div class="table-pagination">
+              <button id="prevPage" class="btn btn--sm btn--secondary">Previous</button>
+              <span id="pageIndicator">Page 1 of 1</span>
+              <button id="nextPage" class="btn btn--sm btn--secondary">Next</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Progress Insights Section -->
+      <section class="section insights-section">
+        <h2>Progress Insights</h2>
+        <div class="insights-grid">
+          <div class="card insight-card">
+            <div class="card__header">
+              <h3>7-Day Progress</h3>
+            </div>
+            <div class="card__body">
+              <div class="insight-metrics" id="sevenDayInsights">
+                <!-- Will be populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+
+          <div class="card insight-card">
+            <div class="card__header">
+              <h3>30-Day Progress</h3>
+            </div>
+            <div class="card__body">
+              <div class="insight-metrics" id="thirtyDayInsights">
+                <!-- Will be populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+
+          <div class="card insight-card">
+            <div class="card__header">
+              <h3>90-Day Progress</h3>
+            </div>
+            <div class="card__body">
+              <div class="insight-metrics" id="ninetyDayInsights">
+                <!-- Will be populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+
+          <div class="card insight-card">
+            <div class="card__header">
+              <h3>Your Goals</h3>
+            </div>
+            <div class="card__body">
+              <form id="goalsForm" class="goals-form">
+                <div class="form-group">
+                  <label for="weightGoal" class="form-label">Target Weight</label>
+                  <div class="input-group">
+                    <input type="number" id="weightGoal" class="form-control" step="0.1">
+                    <span id="weightGoalUnit">kg</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="bodyFatGoal" class="form-label">Target Body Fat %</label>
+                  <div class="input-group">
+                    <input type="number" id="bodyFatGoal" class="form-control" step="0.1">
+                    <span>%</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="leanMassGoal" class="form-label">Target Lean Mass</label>
+                  <div class="input-group">
+                    <input type="number" id="leanMassGoal" class="form-control" step="0.1">
+                    <span id="leanMassGoalUnit">kg</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="heightInput" class="form-label">Your Height (for BMI)</label>
+                  <div class="input-group">
+                    <input type="number" id="heightInput" class="form-control" step="0.01">
+                    <button type="button" id="heightUnitToggle" class="btn btn--sm btn--secondary">cm</button>
+                  </div>
+                </div>
+                <button type="submit" class="btn btn--primary">Save Goals</button>
+              </form>
+              <div id="goalProgress" class="goal-progress-container mt-8">
+                <!-- Will be populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="py-16 flex justify-center">
+          <p>Body Composition Tracker - Track your fitness journey</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Modal for editing measurements -->
+  <div class="modal" id="editModal">
+    <div class="modal-content card">
+      <div class="card__header">
+        <h3>Edit Measurement</h3>
+        <button type="button" class="close-modal" id="closeModal">&times;</button>
+      </div>
+      <div class="card__body">
+        <form id="editForm" class="edit-form">
+          <input type="hidden" id="editId">
+          <div class="form-group">
+            <label for="editDate" class="form-label">Date</label>
+            <input type="date" id="editDate" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label for="editWeight" class="form-label">Weight</label>
+            <div class="input-group">
+              <input type="number" id="editWeight" class="form-control" step="0.1" min="30" max="300" required>
+              <span id="editWeightUnit">kg</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="editBodyFat" class="form-label">Body Fat %</label>
+            <input type="number" id="editBodyFat" class="form-control" step="0.1" min="5" max="50" required>
+          </div>
+
+          <div class="form-group">
+            <label for="editLeanMass" class="form-label">Lean Muscle Mass</label>
+            <div class="input-group">
+              <input type="number" id="editLeanMass" class="form-control" step="0.1" min="20" max="200" required>
+              <span id="editLeanMassUnit">kg</span>
+            </div>
+          </div>
+
+          <div class="form-actions mt-8">
+            <button type="submit" class="btn btn--primary">Save Changes</button>
+            <button type="button" id="cancelEdit" class="btn btn--secondary">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
