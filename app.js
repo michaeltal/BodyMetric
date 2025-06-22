@@ -313,11 +313,11 @@ class BodyCompositionTracker {
 
   updateSevenDayStats() {
     const avgWeight = this.getAverage('weight', 0, 7);
-    const prevAvgWeight = this.getAverage('weight', 7, 14);
     const avgBodyFat = this.getAverage('bodyFat', 0, 7);
-    const prevAvgBodyFat = this.getAverage('bodyFat', 7, 14);
     const avgLean = this.getAverage('leanMass', 0, 7);
-    const prevAvgLean = this.getAverage('leanMass', 7, 14);
+
+    // Use the earliest measurement as the baseline for change calculations
+    const baseline = this.measurements[this.measurements.length - 1];
 
     if (avgWeight == null) {
       this.showEmptyAverageStats();
@@ -330,14 +330,10 @@ class BodyCompositionTracker {
     document.getElementById('avgWeightUnit').textContent = this.useMetric ? 'kg' : 'lbs';
     document.getElementById('avgLeanMassUnit').textContent = this.useMetric ? 'kg' : 'lbs';
 
-    if (prevAvgWeight != null) {
-      this.updateTrend('avgWeightTrend', avgWeight, prevAvgWeight, 'kg');
-    }
-    if (prevAvgBodyFat != null) {
-      this.updateTrend('avgBodyFatTrend', avgBodyFat, prevAvgBodyFat, '%');
-    }
-    if (prevAvgLean != null) {
-      this.updateTrend('avgLeanMassTrend', avgLean, prevAvgLean, 'kg');
+    if (baseline) {
+      this.updateTrend('avgWeightTrend', avgWeight, baseline.weight, 'kg');
+      this.updateTrend('avgBodyFatTrend', avgBodyFat, baseline.bodyFat, '%');
+      this.updateTrend('avgLeanMassTrend', avgLean, baseline.leanMass, 'kg');
     }
 
     this.updateAverageBMI(avgWeight);
