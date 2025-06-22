@@ -23,6 +23,7 @@ class BodyCompositionTracker {
     this.updateTable();
     this.updateInsights();
     this.updateGoalProgress();
+    this.updateGoalInputs();
     this.setDefaultFormDate();
   }
 
@@ -924,12 +925,27 @@ class BodyCompositionTracker {
       const weightGoal = this.useMetric ? this.goals.weight : this.goals.weight * 2.20462;
       document.getElementById('weightGoal').value = weightGoal.toFixed(1);
     }
-    
+
+    if (this.goals.bodyFat) {
+      document.getElementById('bodyFatGoal').value = this.goals.bodyFat.toFixed(1);
+    }
+
     if (this.goals.leanMass) {
       const leanMassGoal = this.useMetric ? this.goals.leanMass : this.goals.leanMass * 2.20462;
       document.getElementById('leanMassGoal').value = leanMassGoal.toFixed(1);
     }
-    
+
+    // Height input
+    const heightInput = document.getElementById('heightInput');
+    if (heightInput) {
+      const heightButton = document.getElementById('heightUnitToggle');
+      if (heightButton.textContent === 'cm') {
+        heightInput.value = this.height ? this.height.toFixed(0) : '';
+      } else {
+        heightInput.value = this.height ? (this.height / 2.54).toFixed(1) : '';
+      }
+    }
+
     // Update unit labels
     document.getElementById('weightGoalUnit').textContent = this.useMetric ? 'kg' : 'lbs';
     document.getElementById('leanMassGoalUnit').textContent = this.useMetric ? 'kg' : 'lbs';
