@@ -197,6 +197,7 @@ class BodyCompositionTracker {
   updateStats() {
     if (this.measurements.length === 0) {
       this.showEmptyStats();
+      this.showEmptyAverageStats();
       return;
     }
 
@@ -221,6 +222,9 @@ class BodyCompositionTracker {
     
     // Update BMI
     this.updateBMI(latest.weight);
+
+    // Update 7 day averages
+    this.updateSevenDayStats();
   }
 
   showEmptyStats() {
@@ -229,7 +233,9 @@ class BodyCompositionTracker {
     document.getElementById('currentLeanMass').textContent = '--.-';
     document.getElementById('currentBMI').textContent = '--.-';
     document.getElementById('bmiCategory').textContent = '--';
-    
+
+    this.showEmptyAverageStats();
+
     // Clear trends
     ['weightTrend', 'bodyFatTrend', 'leanMassTrend'].forEach(id => {
       document.getElementById(id).innerHTML = '';
@@ -279,6 +285,70 @@ class BodyCompositionTracker {
     else category = 'Obese';
     
     document.getElementById('bmiCategory').textContent = category;
+  }
+
+  updateAverageBMI(weight) {
+    if (!this.height) return;
+
+    const heightM = this.height / 100;
+    const bmi = weight / (heightM * heightM);
+
+    document.getElementById('avgBMI').textContent = bmi.toFixed(1);
+
+    let category;
+    if (bmi < 18.5) category = 'Underweight';
+    else if (bmi < 25) category = 'Normal';
+    else if (bmi < 30) category = 'Overweight';
+    else category = 'Obese';
+
+    document.getElementById('avgBMICategory').textContent = category;
+  }
+
+  getAverage(field, start, end) {
+    const slice = this.measurements.slice(start, end);
+    if (slice.length === 0) return null;
+    const sum = slice.reduce((acc, m) => acc + m[field], 0);
+    return sum / slice.length;
+  }
+
+  updateSevenDayStats() {
+    const avgWeight = this.getAverage('weight', 0, 7);
+    const avgBodyFat = this.getAverage('bodyFat', 0, 7);
+    const avgLean = this.getAverage('leanMass', 0, 7);
+
+    // Use the earliest measurement as the baseline for change calculations
+    const baseline = this.measurements[this.measurements.length - 1];
+
+    if (avgWeight == null) {
+      this.showEmptyAverageStats();
+      return;
+    }
+
+    document.getElementById('avgWeight').textContent = this.formatWeight(avgWeight);
+    document.getElementById('avgBodyFat').textContent = avgBodyFat.toFixed(1);
+    document.getElementById('avgLeanMass').textContent = this.formatLeanMass(avgLean);
+    document.getElementById('avgWeightUnit').textContent = this.useMetric ? 'kg' : 'lbs';
+    document.getElementById('avgLeanMassUnit').textContent = this.useMetric ? 'kg' : 'lbs';
+
+    if (baseline) {
+      this.updateTrend('avgWeightTrend', avgWeight, baseline.weight, 'kg');
+      this.updateTrend('avgBodyFatTrend', avgBodyFat, baseline.bodyFat, '%');
+      this.updateTrend('avgLeanMassTrend', avgLean, baseline.leanMass, 'kg');
+    }
+
+    this.updateAverageBMI(avgWeight);
+  }
+
+  showEmptyAverageStats() {
+    document.getElementById('avgWeight').textContent = '--.-';
+    document.getElementById('avgBodyFat').textContent = '--.-%';
+    document.getElementById('avgLeanMass').textContent = '--.-';
+    document.getElementById('avgBMI').textContent = '--.-';
+    document.getElementById('avgBMICategory').textContent = '--';
+
+    ['avgWeightTrend', 'avgBodyFatTrend', 'avgLeanMassTrend'].forEach(id => {
+      document.getElementById(id).innerHTML = '';
+    });
   }
 
   formatWeight(weight) {
