@@ -8,14 +8,14 @@ class BodyCompositionTracker {
     this.sortDirection = 'desc';
     this.useMetric = true;
     this.charts = {};
-    this.goals = this.loadGoals();
-    this.height = this.loadHeight();
-    
+    this.goals = { weight: null, bodyFat: null, leanMass: null };
+    this.height = 175;
+
     this.init();
   }
 
-  init() {
-    this.loadMeasurements();
+  async init() {
+    await this.loadData();
     this.setupEventListeners();
     this.updateCurrentDate();
     this.updateStats();
@@ -46,7 +46,39 @@ class BodyCompositionTracker {
     ];
   }
 
-  loadMeasurements() {
+  async loadData() {
+    try {
+      const res = await fetch('/data');
+      if (!res.ok) throw new Error('Server error');
+      const data = await res.json();
+      this.measurements = data.measurements || [];
+      this.goals = data.goals || { weight: null, bodyFat: null, leanMass: null };
+      this.height = data.height || 175;
+      localStorage.setItem('bodyCompositionData', JSON.stringify(this.measurements));
+      localStorage.setItem('bodyCompositionGoals', JSON.stringify(this.goals));
+      localStorage.setItem('bodyCompositionHeight', this.height.toString());
+    } catch (e) {
+      this.loadMeasurementsLocal();
+      this.goals = this.loadGoalsLocal();
+      this.height = this.loadHeightLocal();
+    }
+
+    this.measurements.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }
+
+  saveToServer() {
+    fetch('/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        measurements: this.measurements,
+        goals: this.goals,
+        height: this.height
+      })
+    }).catch(() => {});
+  }
+
+  loadMeasurementsLocal() {
     const stored = localStorage.getItem('bodyCompositionData');
     if (stored) {
       this.measurements = JSON.parse(stored);
@@ -71,9 +103,10 @@ class BodyCompositionTracker {
 
   saveMeasurements() {
     localStorage.setItem('bodyCompositionData', JSON.stringify(this.measurements));
+    this.saveToServer();
   }
 
-  loadGoals() {
+  loadGoalsLocal() {
     const stored = localStorage.getItem('bodyCompositionGoals');
     return stored ? JSON.parse(stored) : {
       weight: null,
@@ -84,15 +117,17 @@ class BodyCompositionTracker {
 
   saveGoals() {
     localStorage.setItem('bodyCompositionGoals', JSON.stringify(this.goals));
+    this.saveToServer();
   }
 
-  loadHeight() {
+  loadHeightLocal() {
     const stored = localStorage.getItem('bodyCompositionHeight');
     return stored ? parseFloat(stored) : 175; // Default height in cm
   }
 
   saveHeight() {
     localStorage.setItem('bodyCompositionHeight', this.height.toString());
+    this.saveToServer();
   }
 
   generateId() {
