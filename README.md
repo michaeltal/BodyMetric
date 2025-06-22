@@ -1,6 +1,6 @@
 # Body Composition Tracker
 
-This project is a simple web application for tracking body composition metrics such as weight, body fat percentage, and lean muscle mass. The app is entirely client-side and stores data in the browser's local storage.
+This project is a simple web application for tracking body composition metrics such as weight, body fat percentage, and lean muscle mass. Data can be stored on a small Node.js server so it is accessible from multiple browsers. If the server is not available the app falls back to local storage.
 
 ## Features
 
@@ -8,12 +8,20 @@ This project is a simple web application for tracking body composition metrics s
 - Visualize progress with charts powered by Chart.js
 - Track goals for weight, body fat percentage, and lean muscle mass
 - Calculates BMI when a height is provided
+- Optional Node.js backend for shared data storage
 
 ## Getting Started
 
-Open `index.html` in your web browser to start using the tracker. No server is required as all functionality runs in the browser. Data persists between sessions using local storage.
+To make data accessible from multiple browsers, start the included Node.js server first:
 
-For development, any static file server or live reload tool can be used. For example, with Python installed you can run:
+```bash
+npm install
+node server.js
+```
+
+With the server running, open `index.html` in your web browser. All data will be stored in `data.json` on the server and shared across browsers. If the server isn't running, the application will fall back to using local storage.
+
+For development without the Node server you can still use a static file server such as:
 
 ```bash
 python3 -m http.server
@@ -26,6 +34,8 @@ Then navigate to `http://localhost:8000` in your browser.
 - `index.html` – Main HTML page
 - `style.css` – Styles for the application
 - `app.js` – JavaScript logic
+- `server.js` – Simple Express server storing data in `data.json`
+- `data.json` – Server side data storage
 
 ## License
 

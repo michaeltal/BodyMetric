@@ -1,0 +1,17 @@
+{
+  "name": "bodymetric",
+  "version": "1.0.0",
+  "description": "Simple web application for tracking body composition metrics. Data can be stored on a small Node.js server or in browser local storage.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "body-parser": "^2.2.0",
+    "express": "^5.1.0"
+  }
+}
