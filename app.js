@@ -628,7 +628,12 @@ class BodyCompositionTracker {
     });
     
     // Pagination
-    const totalPages = Math.ceil(filteredData.length / this.itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / this.itemsPerPage));
+
+    if (this.currentPage > totalPages) {
+      this.currentPage = totalPages;
+    }
+
     const startIndex = (this.currentPage - 1) * this.itemsPerPage;
     const endIndex = startIndex + this.itemsPerPage;
     const pageData = filteredData.slice(startIndex, endIndex);
@@ -636,7 +641,8 @@ class BodyCompositionTracker {
     // Update pagination controls
     document.getElementById('pageIndicator').textContent = `Page ${this.currentPage} of ${totalPages}`;
     document.getElementById('prevPage').disabled = this.currentPage === 1;
-    document.getElementById('nextPage').disabled = this.currentPage === totalPages;
+    const disableNext = this.currentPage === totalPages || (totalPages === 1 && filteredData.length === 0);
+    document.getElementById('nextPage').disabled = disableNext;
     
     // Render table rows
     tbody.innerHTML = pageData.map(measurement => `
