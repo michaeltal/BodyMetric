@@ -10,6 +10,7 @@ This project is a simple web application for tracking body composition metrics s
 - Calculates BMI when a height is provided
 - Existing goal values and height are preloaded when available
 - Optional Node.js backend for shared data storage
+- Includes a favicon for easy tab identification
 
 ## Getting Started
 
