@@ -1,3 +1,5 @@
+**Everything you see here - except for this line - has been created 100% by various AI tools as a toy project for me to experiment with Codex / Claude Code... judge the code / project history accordingly ;)**
+
 # Body Composition Tracker
 
 This project is a simple web application for tracking body composition metrics such as weight, body fat percentage, and lean muscle mass. Data can be stored on a small Node.js server so it is accessible from multiple browsers. If the server is not available the app falls back to local storage.
