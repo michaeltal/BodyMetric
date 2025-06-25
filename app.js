@@ -138,6 +138,9 @@ class BodyCompositionTracker {
   setupEventListeners() {
     // Form submission
     document.getElementById('measurementForm').addEventListener('submit', this.handleFormSubmit.bind(this));
+    document.getElementById('measurementDate').addEventListener('change', (e) => {
+      this.updateFormAvailability(e.target.value);
+    });
     
     // Unit toggles
     document.getElementById('weightUnitToggle').addEventListener('click', this.toggleWeightUnit.bind(this));
@@ -192,7 +195,9 @@ class BodyCompositionTracker {
 
   setDefaultFormDate() {
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('measurementDate').value = today;
+    const dateInput = document.getElementById('measurementDate');
+    dateInput.value = today;
+    this.updateFormAvailability(today);
   }
 
   updateStats() {
@@ -837,6 +842,7 @@ class BodyCompositionTracker {
     // Reset form
     e.target.reset();
     this.setDefaultFormDate();
+    this.updateFormAvailability(document.getElementById('measurementDate').value);
     
     // Show success message
     this.showNotification('Measurement saved successfully!', 'success');
@@ -923,6 +929,14 @@ class BodyCompositionTracker {
         input.value = this.height.toFixed(0);
       }
     }
+  }
+
+  updateFormAvailability(date) {
+    const exists = this.measurements.some(m => m.date === date);
+    ['weight', 'bodyFat', 'leanMass'].forEach(id => {
+      document.getElementById(id).disabled = exists;
+    });
+    document.querySelector('#measurementForm button[type="submit"]').disabled = exists;
   }
 
   updateGoalInputs() {
@@ -1048,7 +1062,8 @@ class BodyCompositionTracker {
       this.updateTable();
       this.updateInsights();
       this.updateGoalProgress();
-      
+      this.updateFormAvailability(document.getElementById('measurementDate').value);
+
       this.showNotification('Measurement deleted successfully!', 'success');
     }
   }
