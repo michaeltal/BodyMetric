@@ -1,4 +1,4 @@
-**Everything you see here - except for this line - has been created 100% by various AI tools as a toy project for me to experiment with Codex / Claude Code... judge the code / project history accordingly ;)**
+**Everything you see here - except for this line - has been created 100% by various AI tools as a toy project for me to experiment with Codex / Claude Code / GEMINI CLI... judge the code / project history accordingly ;)**
 
 # Body Composition Tracker
 
