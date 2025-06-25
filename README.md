@@ -7,6 +7,7 @@ This project is a simple web application for tracking body composition metrics s
 ## Features
 
 - Add, edit, and remove body measurements
+- Prevent duplicate entries by disabling the form when a selected date already has data
 - Visualize progress with charts powered by Chart.js
 - Track goals for weight, body fat percentage, and lean muscle mass
 - Calculates BMI when a height is provided
