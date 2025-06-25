@@ -45,13 +45,27 @@ The app runs on `http://localhost:3000` with the Node server, or `http://localho
 ## Testing and Verification
 
 ```bash
-# Verify server starts (no real tests implemented)
+# Run all tests
 npm test
 
-# Test server functionality
+# Run tests in watch mode during development
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Test server functionality manually
 node server.js
 # Stop with Ctrl+C
 ```
+
+### Test Structure
+
+- `tests/server.test.js` - API endpoint tests using Supertest
+- `tests/data-persistence.test.js` - File system operations and data integrity tests
+- `tests/fixtures/` - Test data files for consistent testing
+- `tests/setup.js` - Global test configuration and cleanup
+- `jest.config.js` - Jest configuration with coverage settings
 
 ## Data Structure
 

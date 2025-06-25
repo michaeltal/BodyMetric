@@ -1,0 +1,13 @@
+{
+  "measurements": [
+    {
+      "id": "invalid123",
+      "date": "not-a-date",
+      "weight": "not-a-number",
+      "bodyFat": null,
+      "leanMass": -5
+    }
+  ],
+  "goals": "invalid-goals-structure",
+  "height": "not-a-number"
+}

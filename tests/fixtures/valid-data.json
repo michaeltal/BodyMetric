@@ -1,0 +1,28 @@
+{
+  "measurements": [
+    {
+      "id": "test123",
+      "date": "2025-06-25",
+      "weight": 70,
+      "bodyFat": 10,
+      "leanMass": 45,
+      "weightLbs": 154.324,
+      "leanMassLbs": 99.208
+    },
+    {
+      "id": "test456",
+      "date": "2025-06-24",
+      "weight": 69.5,
+      "bodyFat": 10.5,
+      "leanMass": 44.8,
+      "weightLbs": 153.223,
+      "leanMassLbs": 98.767
+    }
+  ],
+  "goals": {
+    "weight": 75,
+    "bodyFat": 8,
+    "leanMass": 50
+  },
+  "height": 180
+}
