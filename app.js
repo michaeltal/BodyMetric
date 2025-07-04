@@ -322,8 +322,17 @@ class BodyCompositionTracker {
     const avgBodyFat = this.getAverage('bodyFat', 0, 7);
     const avgLean = this.getAverage('leanMass', 0, 7);
 
-    // Use the earliest measurement as the baseline for change calculations
-    const baseline = this.measurements[this.measurements.length - 1];
+    // Determine baseline using the previous seven days or the most recent prior entry
+    let baseWeight = this.getAverage('weight', 7, 14);
+    let baseBodyFat = this.getAverage('bodyFat', 7, 14);
+    let baseLean = this.getAverage('leanMass', 7, 14);
+
+    // Fallback to the single entry before the 7 day window
+    if (baseWeight == null && this.measurements[7]) {
+      baseWeight = this.measurements[7].weight;
+      baseBodyFat = this.measurements[7].bodyFat;
+      baseLean = this.measurements[7].leanMass;
+    }
 
     if (avgWeight == null) {
       this.showEmptyAverageStats();
@@ -336,10 +345,15 @@ class BodyCompositionTracker {
     document.getElementById('avgWeightUnit').textContent = this.useMetric ? 'kg' : 'lbs';
     document.getElementById('avgLeanMassUnit').textContent = this.useMetric ? 'kg' : 'lbs';
 
-    if (baseline) {
-      this.updateTrend('avgWeightTrend', avgWeight, baseline.weight, 'kg');
-      this.updateTrend('avgBodyFatTrend', avgBodyFat, baseline.bodyFat, '%');
-      this.updateTrend('avgLeanMassTrend', avgLean, baseline.leanMass, 'kg');
+    if (baseWeight != null) {
+      this.updateTrend('avgWeightTrend', avgWeight, baseWeight, 'kg');
+      this.updateTrend('avgBodyFatTrend', avgBodyFat, baseBodyFat, '%');
+      this.updateTrend('avgLeanMassTrend', avgLean, baseLean, 'kg');
+    } else {
+      // Neutral trend when no historical data for comparison
+      this.updateTrend('avgWeightTrend', avgWeight, avgWeight, 'kg');
+      this.updateTrend('avgBodyFatTrend', avgBodyFat, avgBodyFat, '%');
+      this.updateTrend('avgLeanMassTrend', avgLean, avgLean, 'kg');
     }
 
     this.updateAverageBMI(avgWeight);
