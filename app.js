@@ -223,9 +223,6 @@ class BodyCompositionTracker {
     document.getElementById('avgBMICategory').textContent = category;
   }
 
-  getAverage(field, start, end) {
-    return this.calculationService.getAverage(this.measurements, field, start, end);
-  }
 
   updateSevenDayStats() {
     const avgWeight = this.calculationService.getAverage(this.measurements, 'weight', 0, 7);
@@ -502,17 +499,6 @@ class BodyCompositionTracker {
     });
   }
 
-  calculateMovingAverage(data, windowSize) {
-    const result = [];
-    for (let i = 0; i < data.length; i++) {
-      const start = Math.max(0, i - Math.floor(windowSize / 2));
-      const end = Math.min(data.length, i + Math.ceil(windowSize / 2));
-      const window = data.slice(start, end);
-      const average = window.reduce((sum, val) => sum + val, 0) / window.length;
-      result.push(average);
-    }
-    return result;
-  }
 
   updateTable() {
     const tbody = document.getElementById('tableBody');
@@ -676,21 +662,6 @@ class BodyCompositionTracker {
     container.innerHTML = html || '<div class="empty-state"><p>Set your goals above to track progress</p></div>';
   }
 
-  calculateGoalProgress(current, target, isBodyFat = false) {
-    if (isBodyFat) {
-      // For body fat, progress is based on reduction
-      const initialBodyFat = this.measurements[this.measurements.length - 1]?.bodyFat || current;
-      const totalReduction = initialBodyFat - target;
-      const currentReduction = initialBodyFat - current;
-      return totalReduction > 0 ? Math.min(100, (currentReduction / totalReduction) * 100) : 0;
-    } else {
-      // For weight and lean mass, progress is based on reaching target
-      const initial = this.measurements[this.measurements.length - 1]?.[isBodyFat ? 'bodyFat' : (target === this.goals.weight ? 'weight' : 'leanMass')] || current;
-      const totalChange = Math.abs(target - initial);
-      const currentChange = Math.abs(current - initial);
-      return totalChange > 0 ? Math.min(100, (currentChange / totalChange) * 100) : 0;
-    }
-  }
 
   renderGoalProgress(label, current, target, progress, unit) {
     const remaining = target - current;
@@ -964,19 +935,23 @@ class BodyCompositionTracker {
     this.showNotification('Measurement updated successfully!', 'success');
   }
 
-  deleteMeasurement(id) {
+  async deleteMeasurement(id) {
     if (confirm('Are you sure you want to delete this measurement?')) {
-      const deleted = this.dataManager.deleteMeasurement(id);
-      if (deleted) {
-        this.measurements = this.dataManager.getMeasurements();
-        this.updateStats();
-        this.updateCharts();
-        this.updateTable();
-        this.updateInsights();
-        this.updateGoalProgress();
-        this.updateFormAvailability(document.getElementById('measurementDate').value);
+      try {
+        const deleted = await this.dataManager.deleteMeasurement(id);
+        if (deleted) {
+          this.measurements = this.dataManager.getMeasurements();
+          this.updateStats();
+          this.updateCharts();
+          this.updateTable();
+          this.updateInsights();
+          this.updateGoalProgress();
+          this.updateFormAvailability(document.getElementById('measurementDate').value);
 
-        this.showNotification('Measurement deleted successfully!', 'success');
+          this.showNotification('Measurement deleted successfully!', 'success');
+        }
+      } catch (error) {
+        this.showNotification(`Failed to delete measurement: ${error.message}`, 'error');
       }
     }
   }
@@ -1013,7 +988,6 @@ class BodyCompositionTracker {
       try {
         const csv = e.target.result;
         const lines = csv.split('\n');
-        const header = lines[0];
         
         // Simple CSV parsing
         const newMeasurements = [];
@@ -1037,9 +1011,19 @@ class BodyCompositionTracker {
         }
         
         if (newMeasurements.length > 0) {
+          // Import all measurements with error tracking
+          let successCount = 0;
+          const errors = [];
+          
           for (const measurement of newMeasurements) {
-            await this.dataManager.addMeasurement(measurement);
+            try {
+              await this.dataManager.addMeasurement(measurement);
+              successCount++;
+            } catch (error) {
+              errors.push(`Row ${newMeasurements.indexOf(measurement) + 2}: ${error.message}`);
+            }
           }
+          
           this.measurements = this.dataManager.getMeasurements();
           this.updateStats();
           this.updateCharts();
@@ -1047,7 +1031,13 @@ class BodyCompositionTracker {
           this.updateInsights();
           this.updateGoalProgress();
           
-          this.showNotification(`Imported ${newMeasurements.length} measurements successfully!`, 'success');
+          if (errors.length === 0) {
+            this.showNotification(`Imported ${successCount} measurements successfully!`, 'success');
+          } else if (successCount > 0) {
+            this.showNotification(`Imported ${successCount} measurements, ${errors.length} failed: ${errors.join(', ')}`, 'error');
+          } else {
+            this.showNotification(`Import failed: ${errors.join(', ')}`, 'error');
+          }
         } else {
           this.showNotification('No valid measurements found in the file', 'error');
         }
