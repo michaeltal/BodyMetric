@@ -11,10 +11,16 @@ class BodyCompositionTracker {
     this.goals = { weight: null, bodyFat: null, leanMass: null };
     this.height = 175;
 
+    // Services will be loaded in init
+    this.notificationService = null;
+    this.calculationService = null;
+    this.dataManager = null;
+
     this.init();
   }
 
   async init() {
+    await this.loadServices();
     await this.loadData();
     this.setupEventListeners();
     this.updateCurrentDate();
@@ -25,6 +31,24 @@ class BodyCompositionTracker {
     this.updateGoalProgress();
     this.updateGoalInputs();
     this.setDefaultFormDate();
+  }
+
+  async loadData() {
+    await this.dataManager.loadData();
+    this.measurements = this.dataManager.getMeasurements();
+    this.goals = this.dataManager.getGoals();
+    this.height = this.dataManager.getHeight();
+  }
+
+  async loadServices() {
+    const moduleLoader = new ModuleLoader();
+    const services = await moduleLoader.loadServices();
+    
+    this.notificationService = new services.NotificationService();
+    this.calculationService = new services.CalculationService();
+    this.dataManager = new services.DataManager();
+    
+    console.log('Services loaded successfully');
   }
 
   // Sample data for demo
@@ -47,92 +71,16 @@ class BodyCompositionTracker {
     ];
   }
 
-  async loadData() {
-    try {
-      const res = await fetch('/data');
-      if (!res.ok) throw new Error('Server error');
-      const data = await res.json();
-      this.measurements = data.measurements || [];
-      this.goals = data.goals || { weight: null, bodyFat: null, leanMass: null };
-      this.height = data.height || 175;
-      localStorage.setItem('bodyCompositionData', JSON.stringify(this.measurements));
-      localStorage.setItem('bodyCompositionGoals', JSON.stringify(this.goals));
-      localStorage.setItem('bodyCompositionHeight', this.height.toString());
-    } catch (e) {
-      this.loadMeasurementsLocal();
-      this.goals = this.loadGoalsLocal();
-      this.height = this.loadHeightLocal();
-    }
 
-    this.measurements.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }
 
-  saveToServer() {
-    fetch('/data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        measurements: this.measurements,
-        goals: this.goals,
-        height: this.height
-      })
-    }).catch(() => {});
-  }
 
-  loadMeasurementsLocal() {
-    const stored = localStorage.getItem('bodyCompositionData');
-    if (stored) {
-      this.measurements = JSON.parse(stored);
-    } else {
-      // Load sample data for demo
-      const sampleData = this.getSampleData();
-      this.measurements = sampleData.map(item => ({
-        id: this.generateId(),
-        date: item.date,
-        weight: item.weight_kg,
-        bodyFat: item.body_fat_percent,
-        leanMass: item.lean_mass_kg,
-        weightLbs: item.weight_lbs,
-        leanMassLbs: item.lean_mass_lbs
-      }));
-      this.saveMeasurements();
-    }
-    
-    // Sort by date descending
-    this.measurements.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }
 
-  saveMeasurements() {
-    localStorage.setItem('bodyCompositionData', JSON.stringify(this.measurements));
-    this.saveToServer();
-  }
 
-  loadGoalsLocal() {
-    const stored = localStorage.getItem('bodyCompositionGoals');
-    return stored ? JSON.parse(stored) : {
-      weight: null,
-      bodyFat: null,
-      leanMass: null
-    };
-  }
 
-  saveGoals() {
-    localStorage.setItem('bodyCompositionGoals', JSON.stringify(this.goals));
-    this.saveToServer();
-  }
 
-  loadHeightLocal() {
-    const stored = localStorage.getItem('bodyCompositionHeight');
-    return stored ? parseFloat(stored) : 175; // Default height in cm
-  }
-
-  saveHeight() {
-    localStorage.setItem('bodyCompositionHeight', this.height.toString());
-    this.saveToServer();
-  }
 
   generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+    return Date.now().toString(36) + Math.random().toString(36).substring(2, 11);
   }
 
   setupEventListeners() {
@@ -211,9 +159,9 @@ class BodyCompositionTracker {
     const previous = this.measurements[1];
     
     // Update current values
-    document.getElementById('currentWeight').textContent = this.formatWeight(latest.weight);
+    document.getElementById('currentWeight').textContent = this.calculationService.formatWeight(latest.weight, this.useMetric);
     document.getElementById('currentBodyFat').textContent = `${latest.bodyFat.toFixed(1)}`;
-    document.getElementById('currentLeanMass').textContent = this.formatLeanMass(latest.leanMass);
+    document.getElementById('currentLeanMass').textContent = this.calculationService.formatLeanMass(latest.leanMass, this.useMetric);
     
     // Update units
     document.getElementById('weightUnit').textContent = this.useMetric ? 'kg' : 'lbs';
@@ -250,84 +198,46 @@ class BodyCompositionTracker {
 
   updateTrend(elementId, current, previous, unit) {
     const element = document.getElementById(elementId);
-    const diff = current - previous;
-    const percentage = ((diff / previous) * 100).toFixed(1);
-    
-    let trendClass, arrow, sign;
-    if (Math.abs(diff) < 0.1) {
-      trendClass = 'trend-neutral';
-      arrow = '➡️';
-      sign = '';
-    } else if (diff > 0) {
-      trendClass = 'trend-up';
-      arrow = '⬆️';
-      sign = '+';
-    } else {
-      trendClass = 'trend-down';
-      arrow = '⬇️';
-      sign = '';
-    }
-    
-    element.innerHTML = `
-      <span class="trend-arrow">${arrow}</span>
-      <span class="${trendClass}">
-        ${sign}${diff.toFixed(1)}${unit} (${sign}${percentage}%)
-      </span>
-    `;
+    const trendData = this.calculationService.calculateTrend(current, previous);
+    const trendHtml = this.calculationService.formatTrend(trendData, unit);
+    element.innerHTML = trendHtml;
   }
 
   updateBMI(weight) {
     if (!this.height) return;
     
-    const heightM = this.height / 100; // Convert cm to meters
-    const bmi = weight / (heightM * heightM);
+    const bmi = this.calculationService.calculateBMI(weight, this.height);
+    const category = this.calculationService.getBMICategory(bmi);
     
     document.getElementById('currentBMI').textContent = bmi.toFixed(1);
-    
-    let category;
-    if (bmi < 18.5) category = 'Underweight';
-    else if (bmi < 25) category = 'Normal';
-    else if (bmi < 30) category = 'Overweight';
-    else category = 'Obese';
-    
     document.getElementById('bmiCategory').textContent = category;
   }
 
   updateAverageBMI(weight) {
     if (!this.height) return;
 
-    const heightM = this.height / 100;
-    const bmi = weight / (heightM * heightM);
-
+    const bmi = this.calculationService.calculateBMI(weight, this.height);
+    const category = this.calculationService.getBMICategory(bmi);
+    
     document.getElementById('avgBMI').textContent = bmi.toFixed(1);
-
-    let category;
-    if (bmi < 18.5) category = 'Underweight';
-    else if (bmi < 25) category = 'Normal';
-    else if (bmi < 30) category = 'Overweight';
-    else category = 'Obese';
-
     document.getElementById('avgBMICategory').textContent = category;
   }
 
   getAverage(field, start, end) {
-    const slice = this.measurements.slice(start, end);
-    if (slice.length === 0) return null;
-    const sum = slice.reduce((acc, m) => acc + m[field], 0);
-    return sum / slice.length;
+    return this.calculationService.getAverage(this.measurements, field, start, end);
   }
 
   updateSevenDayStats() {
-    const avgWeight = this.getAverage('weight', 0, 7);
-    const avgBodyFat = this.getAverage('bodyFat', 0, 7);
-    const avgLean = this.getAverage('leanMass', 0, 7);
+    const avgWeight = this.calculationService.getAverage(this.measurements, 'weight', 0, 7);
+    const avgBodyFat = this.calculationService.getAverage(this.measurements, 'bodyFat', 0, 7);
+    const avgLean = this.calculationService.getAverage(this.measurements, 'leanMass', 0, 7);
 
     // Determine baseline using the previous seven days or the most recent prior entry
-    let baseWeight = this.getAverage('weight', 7, 14);
-    let baseBodyFat = this.getAverage('bodyFat', 7, 14);
-    let baseLean = this.getAverage('leanMass', 7, 14);
+    let baseWeight = this.calculationService.getAverage(this.measurements, 'weight', 7, 14);
+    let baseBodyFat = this.calculationService.getAverage(this.measurements, 'bodyFat', 7, 14);
+    let baseLean = this.calculationService.getAverage(this.measurements, 'leanMass', 7, 14);
 
-    // Fallback to the single entry before the 7 day window
+    // Use single entry before the 7 day window if no average available
     if (baseWeight == null && this.measurements[7]) {
       baseWeight = this.measurements[7].weight;
       baseBodyFat = this.measurements[7].bodyFat;
@@ -339,9 +249,9 @@ class BodyCompositionTracker {
       return;
     }
 
-    document.getElementById('avgWeight').textContent = this.formatWeight(avgWeight);
+    document.getElementById('avgWeight').textContent = this.calculationService.formatWeight(avgWeight, this.useMetric);
     document.getElementById('avgBodyFat').textContent = avgBodyFat.toFixed(1);
-    document.getElementById('avgLeanMass').textContent = this.formatLeanMass(avgLean);
+    document.getElementById('avgLeanMass').textContent = this.calculationService.formatLeanMass(avgLean, this.useMetric);
     document.getElementById('avgWeightUnit').textContent = this.useMetric ? 'kg' : 'lbs';
     document.getElementById('avgLeanMassUnit').textContent = this.useMetric ? 'kg' : 'lbs';
 
@@ -371,21 +281,7 @@ class BodyCompositionTracker {
     });
   }
 
-  formatWeight(weight) {
-    if (this.useMetric) {
-      return weight.toFixed(1);
-    } else {
-      return (weight * 2.20462).toFixed(1);
-    }
-  }
 
-  formatLeanMass(leanMass) {
-    if (this.useMetric) {
-      return leanMass.toFixed(1);
-    } else {
-      return (leanMass * 2.20462).toFixed(1);
-    }
-  }
 
   updateCharts() {
     if (this.measurements.length === 0) return;
@@ -406,7 +302,7 @@ class BodyCompositionTracker {
     
     const labels = data.map(d => d.date);
     const weights = data.map(d => this.useMetric ? d.weight : d.weight * 2.20462);
-    const movingAverage = this.calculateMovingAverage(weights, 7);
+    const movingAverage = this.calculationService.calculateMovingAverage(weights, 7);
     
     this.charts.weight = new Chart(ctx, {
       type: 'line',
@@ -479,7 +375,7 @@ class BodyCompositionTracker {
     
     const labels = data.map(d => d.date);
     const bodyFats = data.map(d => d.bodyFat);
-    const movingAverage = this.calculateMovingAverage(bodyFats, 7);
+    const movingAverage = this.calculationService.calculateMovingAverage(bodyFats, 7);
     
     this.charts.bodyFat = new Chart(ctx, {
       type: 'line',
@@ -547,7 +443,7 @@ class BodyCompositionTracker {
     
     const labels = data.map(d => d.date);
     const leanMasses = data.map(d => this.useMetric ? d.leanMass : d.leanMass * 2.20462);
-    const movingAverage = this.calculateMovingAverage(leanMasses, 7);
+    const movingAverage = this.calculationService.calculateMovingAverage(leanMasses, 7);
     
     this.charts.leanMass = new Chart(ctx, {
       type: 'line',
@@ -667,9 +563,9 @@ class BodyCompositionTracker {
     tbody.innerHTML = pageData.map(measurement => `
       <tr>
         <td>${new Date(measurement.date).toLocaleDateString()}</td>
-        <td>${this.formatWeight(measurement.weight)} ${this.useMetric ? 'kg' : 'lbs'}</td>
+        <td>${this.calculationService.formatWeight(measurement.weight, this.useMetric)} ${this.useMetric ? 'kg' : 'lbs'}</td>
         <td>${measurement.bodyFat.toFixed(1)}%</td>
-        <td>${this.formatLeanMass(measurement.leanMass)} ${this.useMetric ? 'kg' : 'lbs'}</td>
+        <td>${this.calculationService.formatLeanMass(measurement.leanMass, this.useMetric)} ${this.useMetric ? 'kg' : 'lbs'}</td>
         <td>
           <div class="action-buttons">
             <button class="action-btn action-btn--edit" onclick="tracker.editMeasurement('${measurement.id}')">
@@ -763,17 +659,17 @@ class BodyCompositionTracker {
     let html = '';
     
     if (this.goals.weight) {
-      const progress = this.calculateGoalProgress(latest.weight, this.goals.weight);
+      const progress = this.calculationService.calculateGoalProgress(latest.weight, this.goals.weight, false, this.measurements);
       html += this.renderGoalProgress('Weight', latest.weight, this.goals.weight, progress, 'kg');
     }
     
     if (this.goals.bodyFat) {
-      const progress = this.calculateGoalProgress(latest.bodyFat, this.goals.bodyFat, true);
+      const progress = this.calculationService.calculateGoalProgress(latest.bodyFat, this.goals.bodyFat, true, this.measurements);
       html += this.renderGoalProgress('Body Fat', latest.bodyFat, this.goals.bodyFat, progress, '%');
     }
     
     if (this.goals.leanMass) {
-      const progress = this.calculateGoalProgress(latest.leanMass, this.goals.leanMass);
+      const progress = this.calculationService.calculateGoalProgress(latest.leanMass, this.goals.leanMass, false, this.measurements);
       html += this.renderGoalProgress('Lean Mass', latest.leanMass, this.goals.leanMass, progress, 'kg');
     }
     
@@ -812,7 +708,7 @@ class BodyCompositionTracker {
   }
 
   // Event Handlers
-  handleFormSubmit(e) {
+  async handleFormSubmit(e) {
     e.preventDefault();
     
     const formData = new FormData(e.target);
@@ -839,14 +735,8 @@ class BodyCompositionTracker {
       leanMassLbs: this.useMetric ? leanMass * 2.20462 : leanMass
     };
     
-    if (existingIndex >= 0) {
-      this.measurements[existingIndex] = measurement;
-    } else {
-      this.measurements.push(measurement);
-    }
-    
-    this.measurements.sort((a, b) => new Date(b.date) - new Date(a.date));
-    this.saveMeasurements();
+    await this.dataManager.addMeasurement(measurement);
+    this.measurements = this.dataManager.getMeasurements();
     this.updateStats();
     this.updateCharts();
     this.updateTable();
@@ -862,7 +752,7 @@ class BodyCompositionTracker {
     this.showNotification('Measurement saved successfully!', 'success');
   }
 
-  handleGoalsSubmit(e) {
+  async handleGoalsSubmit(e) {
     e.preventDefault();
     
     const weightGoal = parseFloat(document.getElementById('weightGoal').value);
@@ -870,28 +760,36 @@ class BodyCompositionTracker {
     const leanMassGoal = parseFloat(document.getElementById('leanMassGoal').value);
     const height = parseFloat(document.getElementById('heightInput').value);
     
-    if (weightGoal) this.goals.weight = this.useMetric ? weightGoal : weightGoal / 2.20462;
-    if (bodyFatGoal) this.goals.bodyFat = bodyFatGoal;
-    if (leanMassGoal) this.goals.leanMass = this.useMetric ? leanMassGoal : leanMassGoal / 2.20462;
-    
-    if (height) {
-      this.height = document.getElementById('heightUnitToggle').textContent === 'cm' ? height : height * 2.54;
-      this.saveHeight();
+    try {
+      if (weightGoal) this.goals.weight = this.useMetric ? weightGoal : weightGoal / 2.20462;
+      if (bodyFatGoal) this.goals.bodyFat = bodyFatGoal;
+      if (leanMassGoal) this.goals.leanMass = this.useMetric ? leanMassGoal : leanMassGoal / 2.20462;
+      
+      if (height) {
+        this.height = document.getElementById('heightUnitToggle').textContent === 'cm' ? height : height * 2.54;
+        await this.dataManager.setHeight(this.height);
+      }
+      
+      await this.dataManager.setGoals(this.goals);
+      this.updateGoalProgress();
+      this.updateStats(); // Update BMI if height changed
+      
+      this.showNotification('Goals saved successfully!', 'success');
+    } catch (error) {
+      this.showNotification(`Failed to save goals: ${error.message}`, 'error');
     }
-    
-    this.saveGoals();
-    this.updateGoalProgress();
-    this.updateStats(); // Update BMI if height changed
-    
-    this.showNotification('Goals saved successfully!', 'success');
   }
 
-  handleHeightChange(e) {
+  async handleHeightChange(e) {
     const height = parseFloat(e.target.value);
     if (height) {
-      this.height = document.getElementById('heightUnitToggle').textContent === 'cm' ? height : height * 2.54;
-      this.saveHeight();
-      this.updateStats();
+      try {
+        this.height = document.getElementById('heightUnitToggle').textContent === 'cm' ? height : height * 2.54;
+        await this.dataManager.setHeight(this.height);
+        this.updateStats();
+      } catch (error) {
+        this.showNotification(`Failed to save height: ${error.message}`, 'error');
+      }
     }
   }
 
@@ -1033,7 +931,7 @@ class BodyCompositionTracker {
     document.getElementById('editModal').classList.add('show');
   }
 
-  handleEditSubmit(e) {
+  async handleEditSubmit(e) {
     e.preventDefault();
     
     const id = document.getElementById('editId').value;
@@ -1045,8 +943,7 @@ class BodyCompositionTracker {
     const measurementIndex = this.measurements.findIndex(m => m.id === id);
     if (measurementIndex === -1) return;
     
-    this.measurements[measurementIndex] = {
-      ...this.measurements[measurementIndex],
+    const updatedData = {
       date,
       weight: this.useMetric ? weight : weight / 2.20462,
       bodyFat,
@@ -1055,8 +952,8 @@ class BodyCompositionTracker {
       leanMassLbs: this.useMetric ? leanMass * 2.20462 : leanMass
     };
     
-    this.measurements.sort((a, b) => new Date(b.date) - new Date(a.date));
-    this.saveMeasurements();
+    await this.dataManager.updateMeasurement(id, updatedData);
+    this.measurements = this.dataManager.getMeasurements();
     this.updateStats();
     this.updateCharts();
     this.updateTable();
@@ -1069,16 +966,18 @@ class BodyCompositionTracker {
 
   deleteMeasurement(id) {
     if (confirm('Are you sure you want to delete this measurement?')) {
-      this.measurements = this.measurements.filter(m => m.id !== id);
-      this.saveMeasurements();
-      this.updateStats();
-      this.updateCharts();
-      this.updateTable();
-      this.updateInsights();
-      this.updateGoalProgress();
-      this.updateFormAvailability(document.getElementById('measurementDate').value);
+      const deleted = this.dataManager.deleteMeasurement(id);
+      if (deleted) {
+        this.measurements = this.dataManager.getMeasurements();
+        this.updateStats();
+        this.updateCharts();
+        this.updateTable();
+        this.updateInsights();
+        this.updateGoalProgress();
+        this.updateFormAvailability(document.getElementById('measurementDate').value);
 
-      this.showNotification('Measurement deleted successfully!', 'success');
+        this.showNotification('Measurement deleted successfully!', 'success');
+      }
     }
   }
 
@@ -1105,12 +1004,12 @@ class BodyCompositionTracker {
     this.showNotification('Data exported successfully!', 'success');
   }
 
-  importData(e) {
+  async importData(e) {
     const file = e.target.files[0];
     if (!file) return;
     
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const csv = e.target.result;
         const lines = csv.split('\n');
@@ -1138,9 +1037,10 @@ class BodyCompositionTracker {
         }
         
         if (newMeasurements.length > 0) {
-          this.measurements = [...this.measurements, ...newMeasurements];
-          this.measurements.sort((a, b) => new Date(b.date) - new Date(a.date));
-          this.saveMeasurements();
+          for (const measurement of newMeasurements) {
+            await this.dataManager.addMeasurement(measurement);
+          }
+          this.measurements = this.dataManager.getMeasurements();
           this.updateStats();
           this.updateCharts();
           this.updateTable();
@@ -1161,63 +1061,11 @@ class BodyCompositionTracker {
   }
 
   showNotification(message, type = 'info') {
-    // Create a simple notification system
-    const notification = document.createElement('div');
-    notification.className = `notification notification--${type}`;
-    notification.textContent = message;
-    notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: var(--color-${type === 'error' ? 'error' : 'success'});
-      color: white;
-      padding: 12px 16px;
-      border-radius: 8px;
-      z-index: 1001;
-      animation: slideIn 0.3s ease-out;
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-      notification.style.animation = 'slideOut 0.3s ease-in';
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 300);
-    }, 3000);
+    return this.notificationService.showNotification(message, type);
   }
 }
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
   window.tracker = new BodyCompositionTracker();
-  
-  // Add CSS for notifications
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes slideIn {
-      from {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-    
-    @keyframes slideOut {
-      from {
-        transform: translateX(0);
-        opacity: 1;
-      }
-      to {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-    }
-  `;
-  document.head.appendChild(style);
 });

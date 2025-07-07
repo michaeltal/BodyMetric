@@ -172,7 +172,7 @@ describe('BodyMetric Server API', () => {
 
   describe('Static file serving', () => {
     test('should serve static files', async () => {
-      // Create a test static file
+      // Create a test static file in the tests directory (where the test app serves static files)
       const testFilePath = path.join(__dirname, 'test-static.txt');
       fs.writeFileSync(testFilePath, 'test content');
 
