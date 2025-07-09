@@ -63,12 +63,18 @@ class ModuleLoader {
       await Promise.all([
         this.loadModule('js/services/NotificationService.js', 'NotificationService'),
         this.loadModule('js/services/CalculationService.js', 'CalculationService'),
-        this.loadModule('js/services/DataManager.js', 'DataManager')
+        this.loadModule('js/services/DataManager.js', 'DataManager'),
+        this.loadModule('js/ui/UIManager.js', 'UIManager'),
+        this.loadModule('js/ui/FormManager.js', 'FormManager'),
+        this.loadModule('js/ui/TableManager.js', 'TableManager')
       ]);
       return {
         NotificationService: this.getModule('NotificationService'),
         CalculationService: this.getModule('CalculationService'),
-        DataManager: this.getModule('DataManager')
+        DataManager: this.getModule('DataManager'),
+        UIManager: this.getModule('UIManager'),
+        FormManager: this.getModule('FormManager'),
+        TableManager: this.getModule('TableManager')
       };
     } catch (error) {
       console.error('Failed to load services:', error);

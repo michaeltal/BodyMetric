@@ -2,10 +2,6 @@
 class BodyCompositionTracker {
   constructor() {
     this.measurements = [];
-    this.currentPage = 1;
-    this.itemsPerPage = 10;
-    this.sortColumn = 'date';
-    this.sortDirection = 'desc';
     this.useMetric = true;
     this.charts = {};
     this.goals = { weight: null, bodyFat: null, leanMass: null };
@@ -15,6 +11,9 @@ class BodyCompositionTracker {
     this.notificationService = null;
     this.calculationService = null;
     this.dataManager = null;
+    this.uiManager = null;
+    this.formManager = null;
+    this.tableManager = null;
 
     this.init();
   }
@@ -22,15 +21,16 @@ class BodyCompositionTracker {
   async init() {
     await this.loadServices();
     await this.loadData();
+    this.setupFormManager();
+    this.setupTableManager();
     this.setupEventListeners();
-    this.updateCurrentDate();
-    this.updateStats();
+    this.uiManager.updateCurrentDate();
+    this.uiManager.updateStats(this.measurements, this.useMetric);
     this.updateCharts();
-    this.updateTable();
+    this.tableManager.updateMeasurements(this.measurements);
     this.updateInsights();
     this.updateGoalProgress();
-    this.updateGoalInputs();
-    this.setDefaultFormDate();
+    this.formManager.setDefaultFormDate();
   }
 
   async loadData() {
@@ -40,6 +40,50 @@ class BodyCompositionTracker {
     this.height = this.dataManager.getHeight();
   }
 
+  setupFormManager() {
+    // Initialize FormManager with current data
+    this.formManager.initialize(this.measurements, this.goals, this.height, this.useMetric);
+    
+    // Set up callbacks for when FormManager updates data
+    this.formManager.setCallbacks({
+      onMeasurementUpdate: () => {
+        this.measurements = this.dataManager.getMeasurements();
+        this.uiManager.updateStats(this.measurements, this.useMetric);
+        this.updateCharts();
+        this.tableManager.updateMeasurements(this.measurements);
+        this.updateInsights();
+        this.updateGoalProgress();
+      },
+      onGoalUpdate: () => {
+        this.goals = this.dataManager.getGoals();
+        this.height = this.dataManager.getHeight();
+        this.uiManager.updateStats(this.measurements, this.useMetric);
+        this.updateGoalProgress();
+      },
+      onUnitToggle: () => {
+        this.useMetric = this.formManager.useMetric;
+        this.uiManager.updateStats(this.measurements, this.useMetric);
+        this.updateCharts();
+        this.tableManager.updateUnits(this.useMetric);
+      }
+    });
+  }
+
+  setupTableManager() {
+    // Initialize TableManager with current data
+    this.tableManager.initialize(this.measurements, this.useMetric);
+    
+    // Set up callbacks for table actions
+    this.tableManager.setCallbacks({
+      onEdit: (id) => {
+        this.formManager.editMeasurement(id);
+      },
+      onDelete: (id) => {
+        this.deleteMeasurement(id);
+      }
+    });
+  }
+
   async loadServices() {
     const moduleLoader = new ModuleLoader();
     const services = await moduleLoader.loadServices();
@@ -47,6 +91,9 @@ class BodyCompositionTracker {
     this.notificationService = new services.NotificationService();
     this.calculationService = new services.CalculationService();
     this.dataManager = new services.DataManager();
+    this.uiManager = new services.UIManager(this.calculationService, this.dataManager);
+    this.formManager = new services.FormManager(this.dataManager, this.notificationService, this.uiManager);
+    this.tableManager = new services.TableManager(this.calculationService);
     
     console.log('Services loaded successfully');
   }
@@ -85,42 +132,42 @@ class BodyCompositionTracker {
 
   setupEventListeners() {
     // Form submission
-    document.getElementById('measurementForm').addEventListener('submit', this.handleFormSubmit.bind(this));
+    document.getElementById('measurementForm').addEventListener('submit', this.formManager.handleFormSubmit.bind(this.formManager));
     document.getElementById('measurementDate').addEventListener('change', (e) => {
-      this.updateFormAvailability(e.target.value);
+      this.formManager.updateFormAvailability(e.target.value);
     });
     
     // Unit toggles
-    document.getElementById('weightUnitToggle').addEventListener('click', this.toggleWeightUnit.bind(this));
-    document.getElementById('leanMassUnitToggle').addEventListener('click', this.toggleLeanMassUnit.bind(this));
-    document.getElementById('heightUnitToggle').addEventListener('click', this.toggleHeightUnit.bind(this));
+    document.getElementById('weightUnitToggle').addEventListener('click', this.formManager.toggleWeightUnit.bind(this.formManager));
+    document.getElementById('leanMassUnitToggle').addEventListener('click', this.formManager.toggleLeanMassUnit.bind(this.formManager));
+    document.getElementById('heightUnitToggle').addEventListener('click', this.formManager.toggleHeightUnit.bind(this.formManager));
     
     // Table sorting
     document.querySelectorAll('[data-sort]').forEach(header => {
-      header.addEventListener('click', this.handleSort.bind(this));
+      header.addEventListener('click', this.tableManager.handleSort.bind(this.tableManager));
     });
     
     // Pagination
-    document.getElementById('prevPage').addEventListener('click', this.previousPage.bind(this));
-    document.getElementById('nextPage').addEventListener('click', this.nextPage.bind(this));
+    document.getElementById('prevPage').addEventListener('click', this.tableManager.previousPage.bind(this.tableManager));
+    document.getElementById('nextPage').addEventListener('click', this.tableManager.nextPage.bind(this.tableManager));
     
     // Search
-    document.getElementById('tableSearch').addEventListener('input', this.handleSearch.bind(this));
+    document.getElementById('tableSearch').addEventListener('input', this.tableManager.handleSearch.bind(this.tableManager));
     
     // Export/Import
     document.getElementById('exportBtn').addEventListener('click', this.exportData.bind(this));
     document.getElementById('importInput').addEventListener('change', this.importData.bind(this));
     
     // Goals form
-    document.getElementById('goalsForm').addEventListener('submit', this.handleGoalsSubmit.bind(this));
+    document.getElementById('goalsForm').addEventListener('submit', this.formManager.handleGoalsSubmit.bind(this.formManager));
     
     // Height input
-    document.getElementById('heightInput').addEventListener('input', this.handleHeightChange.bind(this));
+    document.getElementById('heightInput').addEventListener('input', this.formManager.handleHeightChange.bind(this.formManager));
     
     // Modal
     document.getElementById('closeModal').addEventListener('click', this.closeModal.bind(this));
     document.getElementById('cancelEdit').addEventListener('click', this.closeModal.bind(this));
-    document.getElementById('editForm').addEventListener('submit', this.handleEditSubmit.bind(this));
+    document.getElementById('editForm').addEventListener('submit', this.formManager.handleEditSubmit.bind(this.formManager));
     
     // Close modal on backdrop click
     document.getElementById('editModal').addEventListener('click', (e) => {
@@ -130,153 +177,15 @@ class BodyCompositionTracker {
     });
   }
 
-  updateCurrentDate() {
-    const now = new Date();
-    const options = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    };
-    document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', options);
-  }
-
-  setDefaultFormDate() {
-    const today = new Date().toISOString().split('T')[0];
-    const dateInput = document.getElementById('measurementDate');
-    dateInput.value = today;
-    this.updateFormAvailability(today);
-  }
-
-  updateStats() {
-    if (this.measurements.length === 0) {
-      this.showEmptyStats();
-      this.showEmptyAverageStats();
-      return;
-    }
-
-    const latest = this.measurements[0];
-    const previous = this.measurements[1];
-    
-    // Update current values
-    document.getElementById('currentWeight').textContent = this.calculationService.formatWeight(latest.weight, this.useMetric);
-    document.getElementById('currentBodyFat').textContent = `${latest.bodyFat.toFixed(1)}`;
-    document.getElementById('currentLeanMass').textContent = this.calculationService.formatLeanMass(latest.leanMass, this.useMetric);
-    
-    // Update units
-    document.getElementById('weightUnit').textContent = this.useMetric ? 'kg' : 'lbs';
-    document.getElementById('leanMassUnit').textContent = this.useMetric ? 'kg' : 'lbs';
-    
-    // Update trends
-    if (previous) {
-      this.updateTrend('weightTrend', latest.weight, previous.weight, 'kg');
-      this.updateTrend('bodyFatTrend', latest.bodyFat, previous.bodyFat, '%');
-      this.updateTrend('leanMassTrend', latest.leanMass, previous.leanMass, 'kg');
-    }
-    
-    // Update BMI
-    this.updateBMI(latest.weight);
-
-    // Update 7 day averages
-    this.updateSevenDayStats();
-  }
-
-  showEmptyStats() {
-    document.getElementById('currentWeight').textContent = '--.-';
-    document.getElementById('currentBodyFat').textContent = '--.-%';
-    document.getElementById('currentLeanMass').textContent = '--.-';
-    document.getElementById('currentBMI').textContent = '--.-';
-    document.getElementById('bmiCategory').textContent = '--';
-
-    this.showEmptyAverageStats();
-
-    // Clear trends
-    ['weightTrend', 'bodyFatTrend', 'leanMassTrend'].forEach(id => {
-      document.getElementById(id).innerHTML = '';
-    });
-  }
-
-  updateTrend(elementId, current, previous, unit) {
-    const element = document.getElementById(elementId);
-    const trendData = this.calculationService.calculateTrend(current, previous);
-    const trendHtml = this.calculationService.formatTrend(trendData, unit);
-    element.innerHTML = trendHtml;
-  }
-
-  updateBMI(weight) {
-    if (!this.height) return;
-    
-    const bmi = this.calculationService.calculateBMI(weight, this.height);
-    const category = this.calculationService.getBMICategory(bmi);
-    
-    document.getElementById('currentBMI').textContent = bmi.toFixed(1);
-    document.getElementById('bmiCategory').textContent = category;
-  }
-
-  updateAverageBMI(weight) {
-    if (!this.height) return;
-
-    const bmi = this.calculationService.calculateBMI(weight, this.height);
-    const category = this.calculationService.getBMICategory(bmi);
-    
-    document.getElementById('avgBMI').textContent = bmi.toFixed(1);
-    document.getElementById('avgBMICategory').textContent = category;
-  }
 
 
-  updateSevenDayStats() {
-    const avgWeight = this.calculationService.getAverage(this.measurements, 'weight', 0, 7);
-    const avgBodyFat = this.calculationService.getAverage(this.measurements, 'bodyFat', 0, 7);
-    const avgLean = this.calculationService.getAverage(this.measurements, 'leanMass', 0, 7);
 
-    // Determine baseline using the previous seven days or the most recent prior entry
-    let baseWeight = this.calculationService.getAverage(this.measurements, 'weight', 7, 14);
-    let baseBodyFat = this.calculationService.getAverage(this.measurements, 'bodyFat', 7, 14);
-    let baseLean = this.calculationService.getAverage(this.measurements, 'leanMass', 7, 14);
 
-    // Use single entry before the 7 day window if no average available
-    if (baseWeight == null && this.measurements[7]) {
-      baseWeight = this.measurements[7].weight;
-      baseBodyFat = this.measurements[7].bodyFat;
-      baseLean = this.measurements[7].leanMass;
-    }
 
-    if (avgWeight == null) {
-      this.showEmptyAverageStats();
-      return;
-    }
 
-    document.getElementById('avgWeight').textContent = this.calculationService.formatWeight(avgWeight, this.useMetric);
-    document.getElementById('avgBodyFat').textContent = avgBodyFat.toFixed(1);
-    document.getElementById('avgLeanMass').textContent = this.calculationService.formatLeanMass(avgLean, this.useMetric);
-    document.getElementById('avgWeightUnit').textContent = this.useMetric ? 'kg' : 'lbs';
-    document.getElementById('avgLeanMassUnit').textContent = this.useMetric ? 'kg' : 'lbs';
 
-    if (baseWeight != null) {
-      this.updateTrend('avgWeightTrend', avgWeight, baseWeight, 'kg');
-      this.updateTrend('avgBodyFatTrend', avgBodyFat, baseBodyFat, '%');
-      this.updateTrend('avgLeanMassTrend', avgLean, baseLean, 'kg');
-    } else {
-      // Neutral trend when no historical data for comparison
-      this.updateTrend('avgWeightTrend', avgWeight, avgWeight, 'kg');
-      this.updateTrend('avgBodyFatTrend', avgBodyFat, avgBodyFat, '%');
-      this.updateTrend('avgLeanMassTrend', avgLean, avgLean, 'kg');
-    }
 
-    this.updateAverageBMI(avgWeight);
-  }
 
-  showEmptyAverageStats() {
-    document.getElementById('avgWeight').textContent = '--.-';
-    document.getElementById('avgBodyFat').textContent = '--.-%';
-    document.getElementById('avgLeanMass').textContent = '--.-';
-    document.getElementById('avgBMI').textContent = '--.-';
-    document.getElementById('avgBMICategory').textContent = '--';
-
-    ['avgWeightTrend', 'avgBodyFatTrend', 'avgLeanMassTrend'].forEach(id => {
-      document.getElementById(id).innerHTML = '';
-    });
-  }
 
 
 
@@ -500,79 +409,6 @@ class BodyCompositionTracker {
   }
 
 
-  updateTable() {
-    const tbody = document.getElementById('tableBody');
-    const searchTerm = document.getElementById('tableSearch').value.toLowerCase();
-    
-    let filteredData = this.measurements.filter(measurement => {
-      return measurement.date.includes(searchTerm) ||
-             measurement.weight.toString().includes(searchTerm) ||
-             measurement.bodyFat.toString().includes(searchTerm) ||
-             measurement.leanMass.toString().includes(searchTerm);
-    });
-    
-    // Sort data
-    filteredData.sort((a, b) => {
-      let aVal = a[this.sortColumn];
-      let bVal = b[this.sortColumn];
-      
-      if (this.sortColumn === 'date') {
-        aVal = new Date(aVal);
-        bVal = new Date(bVal);
-      }
-      
-      if (this.sortDirection === 'asc') {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
-    });
-    
-    // Pagination
-    const totalPages = Math.max(1, Math.ceil(filteredData.length / this.itemsPerPage));
-
-    if (this.currentPage > totalPages) {
-      this.currentPage = totalPages;
-    }
-
-    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-    const endIndex = startIndex + this.itemsPerPage;
-    const pageData = filteredData.slice(startIndex, endIndex);
-    
-    // Update pagination controls
-    document.getElementById('pageIndicator').textContent = `Page ${this.currentPage} of ${totalPages}`;
-    document.getElementById('prevPage').disabled = this.currentPage === 1;
-    const disableNext = this.currentPage === totalPages || (totalPages === 1 && filteredData.length === 0);
-    document.getElementById('nextPage').disabled = disableNext;
-    
-    // Render table rows
-    tbody.innerHTML = pageData.map(measurement => `
-      <tr>
-        <td>${new Date(measurement.date).toLocaleDateString()}</td>
-        <td>${this.calculationService.formatWeight(measurement.weight, this.useMetric)} ${this.useMetric ? 'kg' : 'lbs'}</td>
-        <td>${measurement.bodyFat.toFixed(1)}%</td>
-        <td>${this.calculationService.formatLeanMass(measurement.leanMass, this.useMetric)} ${this.useMetric ? 'kg' : 'lbs'}</td>
-        <td>
-          <div class="action-buttons">
-            <button class="action-btn action-btn--edit" onclick="tracker.editMeasurement('${measurement.id}')">
-              Edit
-            </button>
-            <button class="action-btn action-btn--delete" onclick="tracker.deleteMeasurement('${measurement.id}')">
-              Delete
-            </button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
-    
-    // Update sort indicators
-    document.querySelectorAll('[data-sort]').forEach(header => {
-      header.classList.remove('sort-asc', 'sort-desc');
-      if (header.getAttribute('data-sort') === this.sortColumn) {
-        header.classList.add(`sort-${this.sortDirection}`);
-      }
-    });
-  }
 
   updateInsights() {
     const now = new Date();
@@ -679,261 +515,7 @@ class BodyCompositionTracker {
   }
 
   // Event Handlers
-  async handleFormSubmit(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const date = formData.get('measurementDate') || document.getElementById('measurementDate').value;
-    const weight = parseFloat(document.getElementById('weight').value);
-    const bodyFat = parseFloat(document.getElementById('bodyFat').value);
-    const leanMass = parseFloat(document.getElementById('leanMass').value);
-    
-    if (!date || !weight || !bodyFat || !leanMass) {
-      alert('Please fill in all fields');
-      return;
-    }
-    
-    // Check if measurement for this date already exists
-    const existingIndex = this.measurements.findIndex(m => m.date === date);
-    
-    const measurement = {
-      id: existingIndex >= 0 ? this.measurements[existingIndex].id : this.generateId(),
-      date,
-      weight: this.useMetric ? weight : weight / 2.20462, // Store in kg
-      bodyFat,
-      leanMass: this.useMetric ? leanMass : leanMass / 2.20462, // Store in kg
-      weightLbs: this.useMetric ? weight * 2.20462 : weight,
-      leanMassLbs: this.useMetric ? leanMass * 2.20462 : leanMass
-    };
-    
-    await this.dataManager.addMeasurement(measurement);
-    this.measurements = this.dataManager.getMeasurements();
-    this.updateStats();
-    this.updateCharts();
-    this.updateTable();
-    this.updateInsights();
-    this.updateGoalProgress();
-    
-    // Reset form
-    e.target.reset();
-    this.setDefaultFormDate();
-    this.updateFormAvailability(document.getElementById('measurementDate').value);
-    
-    // Show success message
-    this.showNotification('Measurement saved successfully!', 'success');
-  }
 
-  async handleGoalsSubmit(e) {
-    e.preventDefault();
-    
-    const weightGoal = parseFloat(document.getElementById('weightGoal').value);
-    const bodyFatGoal = parseFloat(document.getElementById('bodyFatGoal').value);
-    const leanMassGoal = parseFloat(document.getElementById('leanMassGoal').value);
-    const height = parseFloat(document.getElementById('heightInput').value);
-    
-    try {
-      if (weightGoal) this.goals.weight = this.useMetric ? weightGoal : weightGoal / 2.20462;
-      if (bodyFatGoal) this.goals.bodyFat = bodyFatGoal;
-      if (leanMassGoal) this.goals.leanMass = this.useMetric ? leanMassGoal : leanMassGoal / 2.20462;
-      
-      if (height) {
-        this.height = document.getElementById('heightUnitToggle').textContent === 'cm' ? height : height * 2.54;
-        await this.dataManager.setHeight(this.height);
-      }
-      
-      await this.dataManager.setGoals(this.goals);
-      this.updateGoalProgress();
-      this.updateStats(); // Update BMI if height changed
-      
-      this.showNotification('Goals saved successfully!', 'success');
-    } catch (error) {
-      this.showNotification(`Failed to save goals: ${error.message}`, 'error');
-    }
-  }
-
-  async handleHeightChange(e) {
-    const height = parseFloat(e.target.value);
-    if (height) {
-      try {
-        this.height = document.getElementById('heightUnitToggle').textContent === 'cm' ? height : height * 2.54;
-        await this.dataManager.setHeight(this.height);
-        this.updateStats();
-      } catch (error) {
-        this.showNotification(`Failed to save height: ${error.message}`, 'error');
-      }
-    }
-  }
-
-  toggleWeightUnit() {
-    this.useMetric = !this.useMetric;
-    const button = document.getElementById('weightUnitToggle');
-    button.textContent = this.useMetric ? 'kg' : 'lbs';
-    
-    // Update lean mass unit toggle to match
-    document.getElementById('leanMassUnitToggle').textContent = this.useMetric ? 'kg' : 'lbs';
-    
-    this.updateStats();
-    this.updateCharts();
-    this.updateTable();
-    this.updateGoalInputs();
-  }
-
-  toggleLeanMassUnit() {
-    this.useMetric = !this.useMetric;
-    const button = document.getElementById('leanMassUnitToggle');
-    button.textContent = this.useMetric ? 'kg' : 'lbs';
-    
-    // Update weight unit toggle to match
-    document.getElementById('weightUnitToggle').textContent = this.useMetric ? 'kg' : 'lbs';
-    
-    this.updateStats();
-    this.updateCharts();
-    this.updateTable();
-    this.updateGoalInputs();
-  }
-
-  toggleHeightUnit() {
-    const button = document.getElementById('heightUnitToggle');
-    const input = document.getElementById('heightInput');
-    const currentValue = parseFloat(input.value);
-    
-    if (button.textContent === 'cm') {
-      button.textContent = 'in';
-      if (currentValue) {
-        input.value = (currentValue / 2.54).toFixed(1);
-      } else {
-        input.value = (this.height / 2.54).toFixed(1);
-      }
-    } else {
-      button.textContent = 'cm';
-      if (currentValue) {
-        input.value = (currentValue * 2.54).toFixed(0);
-      } else {
-        input.value = this.height.toFixed(0);
-      }
-    }
-  }
-
-  updateFormAvailability(date) {
-    const exists = this.measurements.some(m => m.date === date);
-    ['weight', 'bodyFat', 'leanMass'].forEach(id => {
-      document.getElementById(id).disabled = exists;
-    });
-    document.querySelector('#measurementForm button[type="submit"]').disabled = exists;
-  }
-
-  updateGoalInputs() {
-    // Update goal input placeholders/values based on current unit
-    if (this.goals.weight) {
-      const weightGoal = this.useMetric ? this.goals.weight : this.goals.weight * 2.20462;
-      document.getElementById('weightGoal').value = weightGoal.toFixed(1);
-    }
-
-    if (this.goals.bodyFat) {
-      document.getElementById('bodyFatGoal').value = this.goals.bodyFat.toFixed(1);
-    }
-
-    if (this.goals.leanMass) {
-      const leanMassGoal = this.useMetric ? this.goals.leanMass : this.goals.leanMass * 2.20462;
-      document.getElementById('leanMassGoal').value = leanMassGoal.toFixed(1);
-    }
-
-    // Height input
-    const heightInput = document.getElementById('heightInput');
-    if (heightInput) {
-      const heightButton = document.getElementById('heightUnitToggle');
-      if (heightButton.textContent === 'cm') {
-        heightInput.value = this.height ? this.height.toFixed(0) : '';
-      } else {
-        heightInput.value = this.height ? (this.height / 2.54).toFixed(1) : '';
-      }
-    }
-
-    // Update unit labels
-    document.getElementById('weightGoalUnit').textContent = this.useMetric ? 'kg' : 'lbs';
-    document.getElementById('leanMassGoalUnit').textContent = this.useMetric ? 'kg' : 'lbs';
-  }
-
-  handleSort(e) {
-    const column = e.target.getAttribute('data-sort');
-    if (this.sortColumn === column) {
-      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-      this.sortColumn = column;
-      this.sortDirection = 'desc';
-    }
-    this.updateTable();
-  }
-
-  previousPage() {
-    if (this.currentPage > 1) {
-      this.currentPage--;
-      this.updateTable();
-    }
-  }
-
-  nextPage() {
-    const totalPages = Math.ceil(this.measurements.length / this.itemsPerPage);
-    if (this.currentPage < totalPages) {
-      this.currentPage++;
-      this.updateTable();
-    }
-  }
-
-  handleSearch() {
-    this.currentPage = 1;
-    this.updateTable();
-  }
-
-  editMeasurement(id) {
-    const measurement = this.measurements.find(m => m.id === id);
-    if (!measurement) return;
-    
-    document.getElementById('editId').value = id;
-    document.getElementById('editDate').value = measurement.date;
-    document.getElementById('editWeight').value = this.useMetric ? measurement.weight : measurement.weight * 2.20462;
-    document.getElementById('editBodyFat').value = measurement.bodyFat;
-    document.getElementById('editLeanMass').value = this.useMetric ? measurement.leanMass : measurement.leanMass * 2.20462;
-    
-    // Update unit labels
-    document.getElementById('editWeightUnit').textContent = this.useMetric ? 'kg' : 'lbs';
-    document.getElementById('editLeanMassUnit').textContent = this.useMetric ? 'kg' : 'lbs';
-    
-    document.getElementById('editModal').classList.add('show');
-  }
-
-  async handleEditSubmit(e) {
-    e.preventDefault();
-    
-    const id = document.getElementById('editId').value;
-    const date = document.getElementById('editDate').value;
-    const weight = parseFloat(document.getElementById('editWeight').value);
-    const bodyFat = parseFloat(document.getElementById('editBodyFat').value);
-    const leanMass = parseFloat(document.getElementById('editLeanMass').value);
-    
-    const measurementIndex = this.measurements.findIndex(m => m.id === id);
-    if (measurementIndex === -1) return;
-    
-    const updatedData = {
-      date,
-      weight: this.useMetric ? weight : weight / 2.20462,
-      bodyFat,
-      leanMass: this.useMetric ? leanMass : leanMass / 2.20462,
-      weightLbs: this.useMetric ? weight * 2.20462 : weight,
-      leanMassLbs: this.useMetric ? leanMass * 2.20462 : leanMass
-    };
-    
-    await this.dataManager.updateMeasurement(id, updatedData);
-    this.measurements = this.dataManager.getMeasurements();
-    this.updateStats();
-    this.updateCharts();
-    this.updateTable();
-    this.updateInsights();
-    this.updateGoalProgress();
-    
-    this.closeModal();
-    this.showNotification('Measurement updated successfully!', 'success');
-  }
 
   async deleteMeasurement(id) {
     if (confirm('Are you sure you want to delete this measurement?')) {
@@ -941,12 +523,13 @@ class BodyCompositionTracker {
         const deleted = await this.dataManager.deleteMeasurement(id);
         if (deleted) {
           this.measurements = this.dataManager.getMeasurements();
-          this.updateStats();
+          this.uiManager.updateStats(this.measurements, this.useMetric);
           this.updateCharts();
-          this.updateTable();
+          this.tableManager.updateMeasurements(this.measurements);
+          this.formManager.updateMeasurements(this.measurements);
           this.updateInsights();
           this.updateGoalProgress();
-          this.updateFormAvailability(document.getElementById('measurementDate').value);
+          this.formManager.updateFormAvailability(document.getElementById('measurementDate').value);
 
           this.showNotification('Measurement deleted successfully!', 'success');
         }
@@ -1025,9 +608,9 @@ class BodyCompositionTracker {
           }
           
           this.measurements = this.dataManager.getMeasurements();
-          this.updateStats();
+          this.uiManager.updateStats(this.measurements, this.useMetric);
           this.updateCharts();
-          this.updateTable();
+          this.tableManager.updateMeasurements(this.measurements);
           this.updateInsights();
           this.updateGoalProgress();
           
