@@ -14,6 +14,10 @@ class BodyCompositionTracker {
     this.uiManager = null;
     this.formManager = null;
     this.tableManager = null;
+    this.goalManager = null;
+    this.importExportManager = null;
+    this.insightsManager = null;
+    this.chartManager = null;
 
     this.init();
   }
@@ -23,6 +27,7 @@ class BodyCompositionTracker {
     await this.loadData();
     this.setupFormManager();
     this.setupTableManager();
+    this.setupImportExportManager();
     this.setupEventListeners();
     this.uiManager.updateCurrentDate();
     this.uiManager.updateStats(this.measurements, this.useMetric);
@@ -84,6 +89,21 @@ class BodyCompositionTracker {
     });
   }
 
+  setupImportExportManager() {
+    // Set up callbacks for import/export actions
+    this.importExportManager.setCallbacks({
+      onImportSuccess: () => {
+        this.measurements = this.dataManager.getMeasurements();
+        this.uiManager.updateStats(this.measurements, this.useMetric);
+        this.updateCharts();
+        this.tableManager.updateMeasurements(this.measurements);
+        this.formManager.updateMeasurements(this.measurements);
+        this.updateInsights();
+        this.updateGoalProgress();
+      }
+    });
+  }
+
   async loadServices() {
     const moduleLoader = new ModuleLoader();
     const services = await moduleLoader.loadServices();
@@ -94,6 +114,10 @@ class BodyCompositionTracker {
     this.uiManager = new services.UIManager(this.calculationService, this.dataManager);
     this.formManager = new services.FormManager(this.dataManager, this.notificationService, this.uiManager);
     this.tableManager = new services.TableManager(this.calculationService);
+    this.goalManager = new services.GoalManager(this.calculationService, this.dataManager);
+    this.importExportManager = new services.ImportExportManager(this.dataManager, this.notificationService);
+    this.insightsManager = new services.InsightsManager(this.calculationService);
+    this.chartManager = new services.ChartManager(this.calculationService);
     
     console.log('Services loaded successfully');
   }
@@ -155,8 +179,10 @@ class BodyCompositionTracker {
     document.getElementById('tableSearch').addEventListener('input', this.tableManager.handleSearch.bind(this.tableManager));
     
     // Export/Import
-    document.getElementById('exportBtn').addEventListener('click', this.exportData.bind(this));
-    document.getElementById('importInput').addEventListener('change', this.importData.bind(this));
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      this.importExportManager.exportData(this.measurements);
+    });
+    document.getElementById('importInput').addEventListener('change', this.importExportManager.importData.bind(this.importExportManager));
     
     // Goals form
     document.getElementById('goalsForm').addEventListener('submit', this.formManager.handleGoalsSubmit.bind(this.formManager));
@@ -190,329 +216,20 @@ class BodyCompositionTracker {
 
 
   updateCharts() {
-    if (this.measurements.length === 0) return;
-    
-    const sortedData = [...this.measurements].sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    this.createWeightChart(sortedData);
-    this.createBodyFatChart(sortedData);
-    this.createLeanMassChart(sortedData);
-  }
-
-  createWeightChart(data) {
-    const ctx = document.getElementById('weightChart').getContext('2d');
-    
-    if (this.charts.weight) {
-      this.charts.weight.destroy();
-    }
-    
-    const labels = data.map(d => d.date);
-    const weights = data.map(d => this.useMetric ? d.weight : d.weight * 2.20462);
-    const movingAverage = this.calculationService.calculateMovingAverage(weights, 7);
-    
-    this.charts.weight = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Daily Weight',
-          data: weights,
-          borderColor: '#1FB8CD',
-          backgroundColor: 'transparent',
-          pointBackgroundColor: '#1FB8CD',
-          pointRadius: 3,
-          borderWidth: 2
-        }, {
-          label: '7-Day Average',
-          data: movingAverage,
-          borderColor: '#FFC185',
-          backgroundColor: 'transparent',
-          pointRadius: 0,
-          borderWidth: 3,
-          tension: 0.4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: false,
-            title: {
-              display: true,
-              text: this.useMetric ? 'Weight (kg)' : 'Weight (lbs)'
-            }
-          },
-          x: {
-            type: 'time',
-            time: {
-              unit: 'day',
-              displayFormats: {
-                day: 'MMM dd'
-              }
-            }
-          }
-        },
-        plugins: {
-          tooltip: {
-            mode: 'index',
-            intersect: false
-          },
-          legend: {
-            display: true,
-            position: 'top'
-          }
-        },
-        interaction: {
-          mode: 'nearest',
-          axis: 'x',
-          intersect: false
-        }
-      }
-    });
-  }
-
-  createBodyFatChart(data) {
-    const ctx = document.getElementById('bodyFatChart').getContext('2d');
-    
-    if (this.charts.bodyFat) {
-      this.charts.bodyFat.destroy();
-    }
-    
-    const labels = data.map(d => d.date);
-    const bodyFats = data.map(d => d.bodyFat);
-    const movingAverage = this.calculationService.calculateMovingAverage(bodyFats, 7);
-    
-    this.charts.bodyFat = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Daily Body Fat %',
-          data: bodyFats,
-          borderColor: '#B4413C',
-          backgroundColor: 'transparent',
-          pointBackgroundColor: '#B4413C',
-          pointRadius: 3,
-          borderWidth: 2
-        }, {
-          label: '7-Day Average',
-          data: movingAverage,
-          borderColor: '#FFC185',
-          backgroundColor: 'transparent',
-          pointRadius: 0,
-          borderWidth: 3,
-          tension: 0.4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: false,
-            title: {
-              display: true,
-              text: 'Body Fat (%)'
-            }
-          },
-          x: {
-            type: 'time',
-            time: {
-              unit: 'day',
-              displayFormats: {
-                day: 'MMM dd'
-              }
-            }
-          }
-        },
-        plugins: {
-          tooltip: {
-            mode: 'index',
-            intersect: false
-          },
-          legend: {
-            display: true,
-            position: 'top'
-          }
-        }
-      }
-    });
-  }
-
-  createLeanMassChart(data) {
-    const ctx = document.getElementById('leanMassChart').getContext('2d');
-    
-    if (this.charts.leanMass) {
-      this.charts.leanMass.destroy();
-    }
-    
-    const labels = data.map(d => d.date);
-    const leanMasses = data.map(d => this.useMetric ? d.leanMass : d.leanMass * 2.20462);
-    const movingAverage = this.calculationService.calculateMovingAverage(leanMasses, 7);
-    
-    this.charts.leanMass = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Daily Lean Mass',
-          data: leanMasses,
-          borderColor: '#5D878F',
-          backgroundColor: 'transparent',
-          pointBackgroundColor: '#5D878F',
-          pointRadius: 3,
-          borderWidth: 2
-        }, {
-          label: '7-Day Average',
-          data: movingAverage,
-          borderColor: '#FFC185',
-          backgroundColor: 'transparent',
-          pointRadius: 0,
-          borderWidth: 3,
-          tension: 0.4
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: false,
-            title: {
-              display: true,
-              text: this.useMetric ? 'Lean Mass (kg)' : 'Lean Mass (lbs)'
-            }
-          },
-          x: {
-            type: 'time',
-            time: {
-              unit: 'day',
-              displayFormats: {
-                day: 'MMM dd'
-              }
-            }
-          }
-        },
-        plugins: {
-          tooltip: {
-            mode: 'index',
-            intersect: false
-          },
-          legend: {
-            display: true,
-            position: 'top'
-          }
-        }
-      }
-    });
+    this.chartManager.updateCharts(this.measurements, this.useMetric);
   }
 
 
 
   updateInsights() {
-    const now = new Date();
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-    
-    this.updatePeriodInsights('sevenDayInsights', sevenDaysAgo);
-    this.updatePeriodInsights('thirtyDayInsights', thirtyDaysAgo);
-    this.updatePeriodInsights('ninetyDayInsights', ninetyDaysAgo);
-  }
-
-  updatePeriodInsights(elementId, startDate) {
-    const element = document.getElementById(elementId);
-    const periodData = this.measurements.filter(m => new Date(m.date) >= startDate);
-    
-    if (periodData.length < 2) {
-      element.innerHTML = '<div class="empty-state"><p>Not enough data for this period</p></div>';
-      return;
-    }
-    
-    const latest = periodData[0];
-    const oldest = periodData[periodData.length - 1];
-    
-    const weightChange = latest.weight - oldest.weight;
-    const bodyFatChange = latest.bodyFat - oldest.bodyFat;
-    const leanMassChange = latest.leanMass - oldest.leanMass;
-    
-    element.innerHTML = `
-      <div class="insight-metric">
-        <span class="insight-metric-label">Weight Change</span>
-        <span class="insight-metric-value ${this.getChangeClass(weightChange)}">
-          ${weightChange > 0 ? '+' : ''}${weightChange.toFixed(1)} kg
-        </span>
-      </div>
-      <div class="insight-metric">
-        <span class="insight-metric-label">Body Fat Change</span>
-        <span class="insight-metric-value ${this.getChangeClass(bodyFatChange, true)}">
-          ${bodyFatChange > 0 ? '+' : ''}${bodyFatChange.toFixed(1)}%
-        </span>
-      </div>
-      <div class="insight-metric">
-        <span class="insight-metric-label">Lean Mass Change</span>
-        <span class="insight-metric-value ${this.getChangeClass(leanMassChange)}">
-          ${leanMassChange > 0 ? '+' : ''}${leanMassChange.toFixed(1)} kg
-        </span>
-      </div>
-    `;
-  }
-
-  getChangeClass(change, isBodyFat = false) {
-    if (Math.abs(change) < 0.1) return 'neutral';
-    
-    if (isBodyFat) {
-      return change > 0 ? 'negative' : 'positive';
-    } else {
-      return change > 0 ? 'positive' : 'negative';
-    }
+    this.insightsManager.updateInsights(this.measurements);
   }
 
   updateGoalProgress() {
-    const container = document.getElementById('goalProgress');
-    
-    if (this.measurements.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>Add measurements to track goal progress</p></div>';
-      return;
-    }
-    
-    const latest = this.measurements[0];
-    let html = '';
-    
-    if (this.goals.weight) {
-      const progress = this.calculationService.calculateGoalProgress(latest.weight, this.goals.weight, false, this.measurements);
-      html += this.renderGoalProgress('Weight', latest.weight, this.goals.weight, progress, 'kg');
-    }
-    
-    if (this.goals.bodyFat) {
-      const progress = this.calculationService.calculateGoalProgress(latest.bodyFat, this.goals.bodyFat, true, this.measurements);
-      html += this.renderGoalProgress('Body Fat', latest.bodyFat, this.goals.bodyFat, progress, '%');
-    }
-    
-    if (this.goals.leanMass) {
-      const progress = this.calculationService.calculateGoalProgress(latest.leanMass, this.goals.leanMass, false, this.measurements);
-      html += this.renderGoalProgress('Lean Mass', latest.leanMass, this.goals.leanMass, progress, 'kg');
-    }
-    
-    container.innerHTML = html || '<div class="empty-state"><p>Set your goals above to track progress</p></div>';
+    this.goalManager.updateGoalProgress(this.measurements, this.goals, this.useMetric);
   }
 
 
-  renderGoalProgress(label, current, target, progress, unit) {
-    const remaining = target - current;
-    const remainingText = remaining > 0 ? `${remaining.toFixed(1)} ${unit} to go` : 'Goal achieved!';
-    
-    return `
-      <div class="goal-progress-item">
-        <div class="goal-progress-label">${label}</div>
-        <div class="goal-progress-value">${remainingText}</div>
-        <div class="goal-progress-bar">
-          <div class="goal-progress-fill" style="width: ${progress}%"></div>
-        </div>
-      </div>
-    `;
-  }
 
   // Event Handlers
 
@@ -543,95 +260,6 @@ class BodyCompositionTracker {
     document.getElementById('editModal').classList.remove('show');
   }
 
-  exportData() {
-    const csvContent = this.measurements.map(m => 
-      `${m.date},${m.weight.toFixed(2)},${m.bodyFat.toFixed(1)},${m.leanMass.toFixed(2)}`
-    ).join('\n');
-    
-    const header = 'Date,Weight (kg),Body Fat %,Lean Mass (kg)\n';
-    const csv = header + csvContent;
-    
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `body-composition-data-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    this.showNotification('Data exported successfully!', 'success');
-  }
-
-  async importData(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const csv = e.target.result;
-        const lines = csv.split('\n');
-        
-        // Simple CSV parsing
-        const newMeasurements = [];
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-          
-          const [date, weight, bodyFat, leanMass] = line.split(',');
-          
-          if (date && weight && bodyFat && leanMass) {
-            newMeasurements.push({
-              id: this.generateId(),
-              date: date.trim(),
-              weight: parseFloat(weight),
-              bodyFat: parseFloat(bodyFat),
-              leanMass: parseFloat(leanMass),
-              weightLbs: parseFloat(weight) * 2.20462,
-              leanMassLbs: parseFloat(leanMass) * 2.20462
-            });
-          }
-        }
-        
-        if (newMeasurements.length > 0) {
-          // Import all measurements with error tracking
-          let successCount = 0;
-          const errors = [];
-          
-          for (const measurement of newMeasurements) {
-            try {
-              await this.dataManager.addMeasurement(measurement);
-              successCount++;
-            } catch (error) {
-              errors.push(`Row ${newMeasurements.indexOf(measurement) + 2}: ${error.message}`);
-            }
-          }
-          
-          this.measurements = this.dataManager.getMeasurements();
-          this.uiManager.updateStats(this.measurements, this.useMetric);
-          this.updateCharts();
-          this.tableManager.updateMeasurements(this.measurements);
-          this.updateInsights();
-          this.updateGoalProgress();
-          
-          if (errors.length === 0) {
-            this.showNotification(`Imported ${successCount} measurements successfully!`, 'success');
-          } else if (successCount > 0) {
-            this.showNotification(`Imported ${successCount} measurements, ${errors.length} failed: ${errors.join(', ')}`, 'error');
-          } else {
-            this.showNotification(`Import failed: ${errors.join(', ')}`, 'error');
-          }
-        } else {
-          this.showNotification('No valid measurements found in the file', 'error');
-        }
-      } catch (error) {
-        this.showNotification('Error importing data. Please check the file format.', 'error');
-      }
-    };
-    
-    reader.readAsText(file);
-    e.target.value = ''; // Reset input
-  }
 
   showNotification(message, type = 'info') {
     return this.notificationService.showNotification(message, type);

@@ -26,9 +26,10 @@ The app runs on `http://localhost:3000` with the Node server, or `http://localho
 - **Service-oriented design**: Modular architecture with clear separation of concerns
 - **Server-only data persistence**: All data stored in `data.json` on Express server
 - **Core Services**: DataManager, CalculationService, NotificationService
+- **UI Management Classes**: UIManager, FormManager, TableManager
 - **Module Loading**: Browser-compatible ES6 module system via ModuleLoader
 - **Visualization**: Chart.js with date-fns adapter for time-series data visualization
-- **Comprehensive Testing**: 113 unit and integration tests ensuring reliability
+- **Comprehensive Testing**: 196 unit and integration tests ensuring reliability
 
 ## Key Files
 
@@ -45,9 +46,16 @@ The app runs on `http://localhost:3000` with the Node server, or `http://localho
 - `js/services/NotificationService.js`: User feedback and error notification system
 - `js/ModuleLoader.js`: Browser-compatible ES6 module loader
 
+### UI Management Classes
+- `js/ui/UIManager.js`: Statistics display, trends, BMI calculations, date formatting
+- `js/ui/FormManager.js`: Form handling, validation, unit toggles, goal management
+- `js/ui/TableManager.js`: Table rendering, sorting, pagination, search functionality
+
 ### Documentation & Testing
 - `Refactor/appJS-Refactor.md`: Architecture refactoring documentation
-- `tests/services/`: Service unit tests (DataManager, CalculationService, NotificationService)
+- `Refactor/Phase2-UI-Plan.md`: Phase 2 UI Management Classes implementation plan
+- `Refactor/Phase3-Features-Plan.md`: Phase 3 Feature Classes implementation plan
+- `tests/services/`: Service unit tests (DataManager, CalculationService, NotificationService, UIManager, FormManager, TableManager)
 - `tests/server.test.js`: API endpoint integration tests
 - `tests/data-persistence.test.js`: File system and data integrity tests
 - `tests/concurrency.test.js`: Concurrent request handling tests
@@ -76,14 +84,24 @@ node server.js
 # Stop with Ctrl+C
 ```
 
-### Test Structure (113 Tests)
+### Test Structure (196 Tests)
 
+#### Core Service Tests
 - `tests/services/DataManager.test.js` - Data persistence and CRUD operation tests
 - `tests/services/CalculationService.test.js` - Mathematical calculations and conversion tests
 - `tests/services/NotificationService.test.js` - User notification system tests
+
+#### UI Management Tests
+- `tests/services/UIManager.test.js` - Statistics display and formatting tests
+- `tests/services/FormManager.test.js` - Form handling and validation tests
+- `tests/services/TableManager.test.js` - Table operations and pagination tests
+
+#### Integration Tests
 - `tests/server.test.js` - API endpoint tests using Supertest
 - `tests/data-persistence.test.js` - File system operations and data integrity tests
 - `tests/concurrency.test.js` - Tests for concurrent request handling and write queue
+
+#### Test Infrastructure
 - `tests/fixtures/` - Test data files for consistent testing
 - `tests/setup.js` - Global test configuration and cleanup
 - `jest.config.js` - Jest configuration with coverage settings
@@ -103,9 +121,11 @@ The application manages measurements with the following structure:
 - **Error Handling**: Comprehensive error handling with user-friendly notifications
 - **CSV Import/Export**: Full CSV functionality with detailed error tracking
 - **Port Configuration**: Use `PORT=8080 node server.js` for custom ports
+- **Modular Architecture**: App refactored from 1,222-line monolith to service-oriented design
+- **Current State**: Phase 2 complete (UI Management Classes), Phase 3 planned (Feature Classes)
 - **Refactoring History**: See `Refactor/appJS-Refactor.md` for architectural evolution
 - **AI Generated**: All code created by AI tools (noted in README)
 
 ---
 
-Last update: July 7, 2025
+Last update: July 9, 2025

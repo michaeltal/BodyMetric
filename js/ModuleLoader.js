@@ -66,7 +66,11 @@ class ModuleLoader {
         this.loadModule('js/services/DataManager.js', 'DataManager'),
         this.loadModule('js/ui/UIManager.js', 'UIManager'),
         this.loadModule('js/ui/FormManager.js', 'FormManager'),
-        this.loadModule('js/ui/TableManager.js', 'TableManager')
+        this.loadModule('js/ui/TableManager.js', 'TableManager'),
+        this.loadModule('js/ui/ChartManager.js', 'ChartManager'),
+        this.loadModule('js/features/GoalManager.js', 'GoalManager'),
+        this.loadModule('js/features/ImportExportManager.js', 'ImportExportManager'),
+        this.loadModule('js/features/InsightsManager.js', 'InsightsManager')
       ]);
       return {
         NotificationService: this.getModule('NotificationService'),
@@ -74,7 +78,11 @@ class ModuleLoader {
         DataManager: this.getModule('DataManager'),
         UIManager: this.getModule('UIManager'),
         FormManager: this.getModule('FormManager'),
-        TableManager: this.getModule('TableManager')
+        TableManager: this.getModule('TableManager'),
+        ChartManager: this.getModule('ChartManager'),
+        GoalManager: this.getModule('GoalManager'),
+        ImportExportManager: this.getModule('ImportExportManager'),
+        InsightsManager: this.getModule('InsightsManager')
       };
     } catch (error) {
       console.error('Failed to load services:', error);
