@@ -22,7 +22,9 @@ describe('UIManager', () => {
         direction: current > previous ? 'up' : current < previous ? 'down' : 'stable',
         change: Math.abs(current - previous)
       })),
-      formatTrend: jest.fn((trendData, unit) => `<span>${trendData.direction} ${trendData.change.toFixed(1)}${unit}</span>`),
+      formatTrend: jest.fn((trendData, unit, contextLabel = '') => `<span>${trendData.direction} ${trendData.change.toFixed(1)}${unit}${contextLabel ? ` ${contextLabel}` : ''}</span>`),
+      getCurrentStatsContext: jest.fn(() => 'vs. yesterday'),
+      getSevenDayAverageContext: jest.fn(() => 'vs. previous week'),
       calculateBMI: jest.fn((weight, height) => weight / ((height / 100) ** 2)),
       getBMICategory: jest.fn((bmi) => {
         if (bmi < 18.5) return 'Underweight';
@@ -199,7 +201,7 @@ describe('UIManager', () => {
       uiManager.updateTrend('weightTrend', 75.0, 75.5, 'kg');
 
       expect(mockCalculationService.calculateTrend).toHaveBeenCalledWith(75.0, 75.5);
-      expect(mockCalculationService.formatTrend).toHaveBeenCalledWith(expect.any(Object), 'kg');
+      expect(mockCalculationService.formatTrend).toHaveBeenCalledWith(expect.any(Object), 'kg', '');
       expect(mockElement.innerHTML).toBe('<span>down 0.5kg</span>');
     });
   });
@@ -316,9 +318,9 @@ describe('UIManager', () => {
 
       uiManager.updateSevenDayStats(measurements, true);
 
-      expect(trendSpy).toHaveBeenCalledWith('avgWeightTrend', 75.3, 75.8, 'kg');
-      expect(trendSpy).toHaveBeenCalledWith('avgBodyFatTrend', 18.8, 19.3, '%');
-      expect(trendSpy).toHaveBeenCalledWith('avgLeanMassTrend', 61.3, 61.8, 'kg');
+      expect(trendSpy).toHaveBeenCalledWith('avgWeightTrend', 75.3, 75.8, 'kg', 'vs. previous week');
+      expect(trendSpy).toHaveBeenCalledWith('avgBodyFatTrend', 18.8, 19.3, '%', 'vs. previous week');
+      expect(trendSpy).toHaveBeenCalledWith('avgLeanMassTrend', 61.3, 61.8, 'kg', 'vs. previous week');
     });
 
     test('should use single measurement as baseline when no average available', () => {
@@ -340,9 +342,9 @@ describe('UIManager', () => {
 
       uiManager.updateSevenDayStats(measurements, true);
 
-      expect(trendSpy).toHaveBeenCalledWith('avgWeightTrend', 75.3, 76.0, 'kg');
-      expect(trendSpy).toHaveBeenCalledWith('avgBodyFatTrend', 18.8, 19.5, '%');
-      expect(trendSpy).toHaveBeenCalledWith('avgLeanMassTrend', 61.3, 62.0, 'kg');
+      expect(trendSpy).toHaveBeenCalledWith('avgWeightTrend', 75.3, 76.0, 'kg', 'vs. previous week');
+      expect(trendSpy).toHaveBeenCalledWith('avgBodyFatTrend', 18.8, 19.5, '%', 'vs. previous week');
+      expect(trendSpy).toHaveBeenCalledWith('avgLeanMassTrend', 61.3, 62.0, 'kg', 'vs. previous week');
     });
 
     test('should show neutral trends when no baseline data', () => {
@@ -365,9 +367,9 @@ describe('UIManager', () => {
 
       uiManager.updateSevenDayStats(shortMeasurements, true);
 
-      expect(trendSpy).toHaveBeenCalledWith('avgWeightTrend', 75.3, 75.3, 'kg');
-      expect(trendSpy).toHaveBeenCalledWith('avgBodyFatTrend', 18.8, 18.8, '%');
-      expect(trendSpy).toHaveBeenCalledWith('avgLeanMassTrend', 61.3, 61.3, 'kg');
+      expect(trendSpy).toHaveBeenCalledWith('avgWeightTrend', 75.3, 75.3, 'kg', 'vs. previous week');
+      expect(trendSpy).toHaveBeenCalledWith('avgBodyFatTrend', 18.8, 18.8, '%', 'vs. previous week');
+      expect(trendSpy).toHaveBeenCalledWith('avgLeanMassTrend', 61.3, 61.3, 'kg', 'vs. previous week');
     });
 
     test('should update average BMI', () => {

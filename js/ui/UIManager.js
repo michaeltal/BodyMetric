@@ -55,9 +55,10 @@ class UIManager {
     
     // Update trends
     if (previous) {
-      this.updateTrend('weightTrend', latest.weight, previous.weight, 'kg');
-      this.updateTrend('bodyFatTrend', latest.bodyFat, previous.bodyFat, '%');
-      this.updateTrend('leanMassTrend', latest.leanMass, previous.leanMass, 'kg');
+      const currentContext = this.calculationService.getCurrentStatsContext(measurements);
+      this.updateTrend('weightTrend', latest.weight, previous.weight, 'kg', currentContext);
+      this.updateTrend('bodyFatTrend', latest.bodyFat, previous.bodyFat, '%', currentContext);
+      this.updateTrend('leanMassTrend', latest.leanMass, previous.leanMass, 'kg', currentContext);
     }
     
     // Update BMI
@@ -106,11 +107,12 @@ class UIManager {
    * @param {number} current - Current value
    * @param {number} previous - Previous value
    * @param {string} unit - Unit for display
+   * @param {string} contextLabel - Optional context label for comparison
    */
-  updateTrend(elementId, current, previous, unit) {
+  updateTrend(elementId, current, previous, unit, contextLabel = '') {
     const element = document.getElementById(elementId);
     const trendData = this.calculationService.calculateTrend(current, previous);
-    const trendHtml = this.calculationService.formatTrend(trendData, unit);
+    const trendHtml = this.calculationService.formatTrend(trendData, unit, contextLabel);
     element.innerHTML = trendHtml;
   }
 
@@ -177,15 +179,17 @@ class UIManager {
     document.getElementById('avgWeightUnit').textContent = useMetric ? 'kg' : 'lbs';
     document.getElementById('avgLeanMassUnit').textContent = useMetric ? 'kg' : 'lbs';
 
+    const averageContext = this.calculationService.getSevenDayAverageContext(measurements);
+    
     if (baseWeight != null) {
-      this.updateTrend('avgWeightTrend', avgWeight, baseWeight, 'kg');
-      this.updateTrend('avgBodyFatTrend', avgBodyFat, baseBodyFat, '%');
-      this.updateTrend('avgLeanMassTrend', avgLean, baseLean, 'kg');
+      this.updateTrend('avgWeightTrend', avgWeight, baseWeight, 'kg', averageContext);
+      this.updateTrend('avgBodyFatTrend', avgBodyFat, baseBodyFat, '%', averageContext);
+      this.updateTrend('avgLeanMassTrend', avgLean, baseLean, 'kg', averageContext);
     } else {
       // Neutral trend when no historical data for comparison
-      this.updateTrend('avgWeightTrend', avgWeight, avgWeight, 'kg');
-      this.updateTrend('avgBodyFatTrend', avgBodyFat, avgBodyFat, '%');
-      this.updateTrend('avgLeanMassTrend', avgLean, avgLean, 'kg');
+      this.updateTrend('avgWeightTrend', avgWeight, avgWeight, 'kg', averageContext);
+      this.updateTrend('avgBodyFatTrend', avgBodyFat, avgBodyFat, '%', averageContext);
+      this.updateTrend('avgLeanMassTrend', avgLean, avgLean, 'kg', averageContext);
     }
 
     this.updateAverageBMI(avgWeight);

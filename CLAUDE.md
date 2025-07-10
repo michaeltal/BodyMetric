@@ -26,15 +26,16 @@ The app runs on `http://localhost:3000` with the Node server, or `http://localho
 - **Service-oriented design**: Modular architecture with clear separation of concerns
 - **Server-only data persistence**: All data stored in `data.json` on Express server
 - **Core Services**: DataManager, CalculationService, NotificationService
-- **UI Management Classes**: UIManager, FormManager, TableManager
+- **UI Management Classes**: UIManager, FormManager, TableManager, ChartManager
+- **Feature Classes**: GoalManager, ImportExportManager, InsightsManager
 - **Module Loading**: Browser-compatible ES6 module system via ModuleLoader
 - **Visualization**: Chart.js with date-fns adapter for time-series data visualization
-- **Comprehensive Testing**: 196 unit and integration tests ensuring reliability
+- **Comprehensive Testing**: 336 unit and integration tests ensuring reliability
 
 ## Key Files
 
 ### Core Application
-- `app.js`: Main application orchestrator with `BodyCompositionTracker` class
+- `app.js`: Main application orchestrator with `BodyCompositionTracker` class (reduced from 1,222 to 271 lines)
 - `server.js`: Express server with data persistence, write queue, and CORS support
 - `index.html`: Single-page application entry point
 - `style.css`: Comprehensive CSS with design system using CSS variables
@@ -50,12 +51,18 @@ The app runs on `http://localhost:3000` with the Node server, or `http://localho
 - `js/ui/UIManager.js`: Statistics display, trends, BMI calculations, date formatting
 - `js/ui/FormManager.js`: Form handling, validation, unit toggles, goal management
 - `js/ui/TableManager.js`: Table rendering, sorting, pagination, search functionality
+- `js/ui/ChartManager.js`: Chart.js integration and lifecycle management
+
+### Feature Classes
+- `js/features/GoalManager.js`: Goal progress calculation and visualization
+- `js/features/ImportExportManager.js`: CSV import/export operations
+- `js/features/InsightsManager.js`: Period-based insights and trend analysis
 
 ### Documentation & Testing
 - `Refactor/appJS-Refactor.md`: Architecture refactoring documentation
 - `Refactor/Phase2-UI-Plan.md`: Phase 2 UI Management Classes implementation plan
 - `Refactor/Phase3-Features-Plan.md`: Phase 3 Feature Classes implementation plan
-- `tests/services/`: Service unit tests (DataManager, CalculationService, NotificationService, UIManager, FormManager, TableManager)
+- `tests/services/`: Service unit tests (DataManager, CalculationService, NotificationService, UIManager, FormManager, TableManager, ChartManager, GoalManager, ImportExportManager, InsightsManager)
 - `tests/server.test.js`: API endpoint integration tests
 - `tests/data-persistence.test.js`: File system and data integrity tests
 - `tests/concurrency.test.js`: Concurrent request handling tests
@@ -84,7 +91,7 @@ node server.js
 # Stop with Ctrl+C
 ```
 
-### Test Structure (196 Tests)
+### Test Structure (336 Tests)
 
 #### Core Service Tests
 - `tests/services/DataManager.test.js` - Data persistence and CRUD operation tests
@@ -95,6 +102,12 @@ node server.js
 - `tests/services/UIManager.test.js` - Statistics display and formatting tests
 - `tests/services/FormManager.test.js` - Form handling and validation tests
 - `tests/services/TableManager.test.js` - Table operations and pagination tests
+- `tests/services/ChartManager.test.js` - Chart.js integration and lifecycle tests
+
+#### Feature Classes Tests
+- `tests/services/GoalManager.test.js` - Goal progress calculation and visualization tests
+- `tests/services/ImportExportManager.test.js` - CSV import/export operation tests
+- `tests/services/InsightsManager.test.js` - Period-based insights and trend analysis tests
 
 #### Integration Tests
 - `tests/server.test.js` - API endpoint tests using Supertest
@@ -121,11 +134,11 @@ The application manages measurements with the following structure:
 - **Error Handling**: Comprehensive error handling with user-friendly notifications
 - **CSV Import/Export**: Full CSV functionality with detailed error tracking
 - **Port Configuration**: Use `PORT=8080 node server.js` for custom ports
-- **Modular Architecture**: App refactored from 1,222-line monolith to service-oriented design
-- **Current State**: Phase 2 complete (UI Management Classes), Phase 3 planned (Feature Classes)
+- **Modular Architecture**: App refactored from 1,222-line monolith to service-oriented design (78% reduction)
+- **Current State**: Phase 3 complete (Feature Classes) - full modular architecture achieved
 - **Refactoring History**: See `Refactor/appJS-Refactor.md` for architectural evolution
 - **AI Generated**: All code created by AI tools (noted in README)
 
 ---
 
-Last update: July 9, 2025
+Last update: July 10, 2025

@@ -779,6 +779,15 @@ select.form-control {
   color: var(--color-text-secondary);
 }
 
+.trend-context {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-normal);
+  margin-top: var(--space-2);
+  text-align: center;
+}
+
 .stat-category {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);

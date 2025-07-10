@@ -68,7 +68,7 @@ class CalculationService {
     };
   }
 
-  formatTrend(trendData, unit) {
+  formatTrend(trendData, unit, contextLabel = '') {
     if (!trendData) return '';
     
     return `
@@ -76,7 +76,44 @@ class CalculationService {
       <span class="${trendData.trendClass}">
         ${trendData.sign}${trendData.diff}${unit} (${trendData.sign}${trendData.percentage}%)
       </span>
+      ${contextLabel ? `<span class="trend-context">${contextLabel}</span>` : ''}
     `;
+  }
+
+  getCurrentStatsContext(measurements) {
+    if (!measurements || measurements.length < 2) return '';
+    
+    const latest = measurements[0];
+    const previous = measurements[1];
+    
+    const latestDate = new Date(latest.date);
+    const previousDate = new Date(previous.date);
+    const daysDiff = Math.round((latestDate - previousDate) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff === 1) {
+      return 'vs. yesterday';
+    } else if (daysDiff === 0) {
+      return 'vs. same day';
+    } else {
+      return `vs. ${daysDiff} days ago`;
+    }
+  }
+
+  getSevenDayAverageContext(measurements) {
+    if (!measurements || measurements.length < 7) return '';
+    
+    let baseWeight = this.getAverage(measurements, 'weight', 7, 14);
+    
+    if (baseWeight !== null) {
+      return 'vs. previous week';
+    } else if (measurements[7]) {
+      const baseDate = new Date(measurements[7].date);
+      const currentDate = new Date(measurements[0].date);
+      const daysDiff = Math.round((currentDate - baseDate) / (1000 * 60 * 60 * 24));
+      return `vs. ${daysDiff} days ago`;
+    } else {
+      return '';
+    }
   }
 
   convertWeight(weight, toMetric) {
