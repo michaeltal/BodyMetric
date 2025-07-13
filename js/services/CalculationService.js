@@ -72,10 +72,12 @@ class CalculationService {
     if (!trendData) return '';
     
     return `
-      <span class="trend-arrow">${trendData.arrow}</span>
-      <span class="${trendData.trendClass}">
-        ${trendData.sign}${trendData.diff}${unit} (${trendData.sign}${trendData.percentage}%)
-      </span>
+      <div class="trend-main">
+        <span class="trend-arrow">${trendData.arrow}</span>
+        <span class="${trendData.trendClass}">
+          ${trendData.sign}${trendData.diff}${unit} (${trendData.sign}${trendData.percentage}%)
+        </span>
+      </div>
       ${contextLabel ? `<span class="trend-context">${contextLabel}</span>` : ''}
     `;
   }
