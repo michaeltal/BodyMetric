@@ -309,4 +309,341 @@ describe('CalculationService', () => {
       expect(calcService.normalizeHeight(69, false)).toBeCloseTo(175.26, 1);
     });
   });
+
+  describe('Timeline Estimation Functions', () => {
+    let mockMeasurements;
+
+    beforeEach(() => {
+      const baseDate = new Date('2025-07-01');
+      mockMeasurements = [];
+      
+      for (let i = 0; i < 20; i++) {
+        const date = new Date(baseDate);
+        date.setDate(date.getDate() + i);
+        mockMeasurements.push({
+          date: date.toISOString().split('T')[0],
+          weight: 65 + (i * 0.1),
+          bodyFat: 10 - (i * 0.05),
+          leanMass: 42 + (i * 0.08)
+        });
+      }
+      
+      mockMeasurements.reverse();
+    });
+
+    describe('calculateLinearRegression', () => {
+      test('should calculate linear regression with weighted data', () => {
+        const result = calcService.calculateLinearRegression(mockMeasurements, 'weight', 14);
+        
+        expect(result).toBeDefined();
+        expect(result.slope).toBeGreaterThan(0);
+        expect(result.intercept).toBeDefined();
+        expect(result.rSquared).toBeGreaterThan(0);
+        expect(result.dataPoints).toBeGreaterThan(0);
+        expect(result.timeframeDays).toBe(14);
+      });
+
+      test('should return null for insufficient data', () => {
+        const result = calcService.calculateLinearRegression([], 'weight', 14);
+        expect(result).toBeNull();
+      });
+
+      test('should return null for single measurement', () => {
+        const singleMeasurement = [mockMeasurements[0]];
+        const result = calcService.calculateLinearRegression(singleMeasurement, 'weight', 14);
+        expect(result).toBeNull();
+      });
+
+      test('should handle different fields correctly', () => {
+        const weightResult = calcService.calculateLinearRegression(mockMeasurements, 'weight', 14);
+        const bodyFatResult = calcService.calculateLinearRegression(mockMeasurements, 'bodyFat', 14);
+        const leanMassResult = calcService.calculateLinearRegression(mockMeasurements, 'leanMass', 14);
+
+        expect(weightResult.slope).toBeGreaterThan(0);
+        expect(bodyFatResult.slope).toBeLessThan(0);
+        expect(leanMassResult.slope).toBeGreaterThan(0);
+      });
+
+      test('should handle different timeframes', () => {
+        const shortTerm = calcService.calculateLinearRegression(mockMeasurements, 'weight', 7);
+        const longTerm = calcService.calculateLinearRegression(mockMeasurements, 'weight', 30);
+
+        expect(shortTerm.timeframeDays).toBe(7);
+        expect(longTerm.timeframeDays).toBe(30);
+        expect(shortTerm.dataPoints).toBeLessThanOrEqual(longTerm.dataPoints);
+      });
+    });
+
+    describe('calculateTrendSlope', () => {
+      test('should return slope from linear regression', () => {
+        const slope = calcService.calculateTrendSlope(mockMeasurements, 'weight', 14);
+        expect(slope).toBeGreaterThan(0);
+        expect(typeof slope).toBe('number');
+      });
+
+      test('should return null for insufficient data', () => {
+        const slope = calcService.calculateTrendSlope([], 'weight', 14);
+        expect(slope).toBeNull();
+      });
+
+      test('should handle negative slopes', () => {
+        const slope = calcService.calculateTrendSlope(mockMeasurements, 'bodyFat', 14);
+        expect(slope).toBeLessThan(0);
+      });
+    });
+
+    describe('estimateGoalTimeline', () => {
+      test('should estimate timeline for weight gain goal', () => {
+        const currentWeight = 65;
+        const goalWeight = 70;
+        const timeline = calcService.estimateGoalTimeline(mockMeasurements, 'weight', currentWeight, goalWeight, 14);
+
+        expect(timeline).toBeDefined();
+        expect(timeline.daysToGoal).toBeGreaterThan(0);
+        expect(timeline.daysToGoal).toBeLessThan(1000);
+        expect(timeline.targetDate).toBeInstanceOf(Date);
+        expect(timeline.confidence).toMatch(/^(high|medium|low)$/);
+        expect(timeline.rSquared).toBeGreaterThanOrEqual(0);
+        expect(timeline.rSquared).toBeLessThanOrEqual(1);
+        expect(timeline.dailyRate).toBeGreaterThan(0);
+        expect(timeline.achievable).toBe(true);
+      });
+
+      test('should estimate timeline for body fat reduction goal', () => {
+        const currentBodyFat = 10;
+        const goalBodyFat = 8;
+        const timeline = calcService.estimateGoalTimeline(mockMeasurements, 'bodyFat', currentBodyFat, goalBodyFat, 14);
+
+        expect(timeline).toBeDefined();
+        expect(timeline.daysToGoal).toBeGreaterThan(0);
+        expect(timeline.dailyRate).toBeLessThan(0);
+        expect(timeline.achievable).toBe(true);
+      });
+
+      test('should return reason object for insufficient data', () => {
+        const timeline = calcService.estimateGoalTimeline([], 'weight', 65, 70, 14);
+        expect(timeline).toEqual({
+          success: false,
+          reason: 'insufficient_data',
+          currentValue: 65,
+          goalValue: 70
+        });
+      });
+
+      test('should return reason object when goal equals current value', () => {
+        const timeline = calcService.estimateGoalTimeline(mockMeasurements, 'weight', 65, 65, 14);
+        expect(timeline).toEqual({
+          success: false,
+          reason: 'goal_achieved',
+          currentValue: 65,
+          goalValue: 65
+        });
+      });
+
+      test('should return reason object for very slow progress', () => {
+        const flatData = mockMeasurements.map(m => ({ ...m, weight: 65 }));
+        const timeline = calcService.estimateGoalTimeline(flatData, 'weight', 65, 70, 14);
+        expect(timeline).toEqual({
+          success: false,
+          reason: 'trend_too_weak',
+          currentValue: 65,
+          goalValue: 70
+        });
+      });
+
+      test('should return reason object for unrealistic timelines', () => {
+        const verySlowData = mockMeasurements.map((m, i) => ({ ...m, weight: 65 + (i * 0.001) }));
+        const timeline = calcService.estimateGoalTimeline(verySlowData, 'weight', 65, 70, 14);
+        expect(timeline).toEqual({
+          success: false,
+          reason: 'invalid_timeline',
+          currentValue: 65,
+          goalValue: 70
+        });
+      });
+    });
+
+    describe('calculatePredictionConfidence', () => {
+      test('should return R-squared value', () => {
+        const confidence = calcService.calculatePredictionConfidence(mockMeasurements, 'weight', 14);
+        expect(confidence).toBeGreaterThanOrEqual(0);
+        expect(confidence).toBeLessThanOrEqual(1);
+      });
+
+      test('should return 0 for insufficient data', () => {
+        const confidence = calcService.calculatePredictionConfidence([], 'weight', 14);
+        expect(confidence).toBe(0);
+      });
+
+      test('should return high confidence for consistent data', () => {
+        const confidence = calcService.calculatePredictionConfidence(mockMeasurements, 'weight', 14);
+        expect(confidence).toBeGreaterThan(0.5);
+      });
+    });
+
+    describe('getWeightedAverage', () => {
+      test('should calculate weighted average with exponential decay', () => {
+        const average = calcService.getWeightedAverage(mockMeasurements, 'weight', 14);
+        expect(average).toBeGreaterThan(65);
+        expect(average).toBeLessThan(68);
+      });
+
+      test('should return null for empty data', () => {
+        const average = calcService.getWeightedAverage([], 'weight', 14);
+        expect(average).toBeNull();
+      });
+
+      test('should handle different timeframes', () => {
+        const shortTerm = calcService.getWeightedAverage(mockMeasurements, 'weight', 7);
+        const longTerm = calcService.getWeightedAverage(mockMeasurements, 'weight', 30);
+        
+        expect(shortTerm).toBeDefined();
+        expect(longTerm).toBeDefined();
+        expect(shortTerm).toBeGreaterThan(longTerm);
+      });
+
+      test('should handle different fields', () => {
+        const weightAvg = calcService.getWeightedAverage(mockMeasurements, 'weight', 14);
+        const bodyFatAvg = calcService.getWeightedAverage(mockMeasurements, 'bodyFat', 14);
+        const leanMassAvg = calcService.getWeightedAverage(mockMeasurements, 'leanMass', 14);
+
+        expect(weightAvg).toBeGreaterThan(65);
+        expect(bodyFatAvg).toBeLessThan(10);
+        expect(leanMassAvg).toBeGreaterThan(42);
+      });
+    });
+
+    describe('getConfidenceLevel', () => {
+      test('should return correct confidence levels', () => {
+        expect(calcService.getConfidenceLevel(0.8)).toBe('high');
+        expect(calcService.getConfidenceLevel(0.7)).toBe('high');
+        expect(calcService.getConfidenceLevel(0.6)).toBe('medium');
+        expect(calcService.getConfidenceLevel(0.4)).toBe('medium');
+        expect(calcService.getConfidenceLevel(0.3)).toBe('low');
+        expect(calcService.getConfidenceLevel(0.0)).toBe('low');
+      });
+
+      test('should handle edge cases', () => {
+        expect(calcService.getConfidenceLevel(1.0)).toBe('high');
+        expect(calcService.getConfidenceLevel(0.69)).toBe('medium');
+        expect(calcService.getConfidenceLevel(0.39)).toBe('low');
+      });
+    });
+
+    describe('isGoalAchievable', () => {
+      test('should return true for same direction progress', () => {
+        expect(calcService.isGoalAchievable(0.1, 5)).toBe(true);
+        expect(calcService.isGoalAchievable(-0.1, -5)).toBe(true);
+      });
+
+      test('should return false for opposite direction progress', () => {
+        expect(calcService.isGoalAchievable(0.1, -5)).toBe(false);
+        expect(calcService.isGoalAchievable(-0.1, 5)).toBe(false);
+      });
+
+      test('should return false for very slow progress', () => {
+        expect(calcService.isGoalAchievable(0.005, 5)).toBe(false);
+        expect(calcService.isGoalAchievable(-0.005, -5)).toBe(false);
+      });
+
+      test('should handle edge cases', () => {
+        expect(calcService.isGoalAchievable(0.011, 1)).toBe(true);
+        expect(calcService.isGoalAchievable(-0.011, -1)).toBe(true);
+        expect(calcService.isGoalAchievable(0, 5)).toBe(false);
+      });
+    });
+
+    describe('formatTimelineEstimate', () => {
+      test('should format short timelines in days', () => {
+        const result = calcService.formatTimelineEstimate(1, 'high');
+        expect(result.estimate).toBe('~1 day');
+        expect(result.exact).toBe('1 day');
+        expect(result.confidence).toBe('high');
+
+        const result2 = calcService.formatTimelineEstimate(15, 'medium');
+        expect(result2.estimate).toBe('~15 days');
+        expect(result2.exact).toBe('15 days');
+      });
+
+      test('should format medium timelines in weeks', () => {
+        const result = calcService.formatTimelineEstimate(35, 'high');
+        expect(result.estimate).toBe('~5 weeks');
+        expect(result.confidence).toBe('high');
+
+        const result2 = calcService.formatTimelineEstimate(49, 'medium');
+        expect(result2.estimate).toBe('~7 weeks');
+      });
+
+      test('should format long timelines in months', () => {
+        const result = calcService.formatTimelineEstimate(120, 'low');
+        expect(result.estimate).toBe('~4 months');
+        expect(result.confidence).toBe('low');
+
+        const result2 = calcService.formatTimelineEstimate(180, 'medium');
+        expect(result2.estimate).toBe('~6 months');
+      });
+
+      test('should return null for invalid input', () => {
+        expect(calcService.formatTimelineEstimate(0, 'high')).toBeNull();
+        expect(calcService.formatTimelineEstimate(-5, 'high')).toBeNull();
+        expect(calcService.formatTimelineEstimate(null, 'high')).toBeNull();
+      });
+
+      test('should handle edge cases', () => {
+        const result30 = calcService.formatTimelineEstimate(30, 'high');
+        expect(result30.estimate).toBe('~30 days');
+
+        const result31 = calcService.formatTimelineEstimate(31, 'high');
+        expect(result31.estimate).toBe('~4 weeks');
+
+        const result90 = calcService.formatTimelineEstimate(90, 'high');
+        expect(result90.estimate).toBe('~13 weeks');
+
+        const result91 = calcService.formatTimelineEstimate(91, 'high');
+        expect(result91.estimate).toBe('~3 months');
+      });
+    });
+
+    describe('Edge Cases and Error Handling', () => {
+      test('should handle measurements with missing fields', () => {
+        const incompleteData = [
+          { date: '2025-07-01', weight: 65 },
+          { date: '2025-07-02', weight: 65.5 }
+        ];
+        
+        const result = calcService.calculateLinearRegression(incompleteData, 'bodyFat', 14);
+        expect(result).toBeNull();
+      });
+
+      test('should handle invalid dates', () => {
+        const invalidData = [
+          { date: 'invalid-date', weight: 65, bodyFat: 10, leanMass: 42 },
+          { date: '2025-07-02', weight: 65.5, bodyFat: 10.1, leanMass: 42.1 }
+        ];
+        
+        const result = calcService.calculateLinearRegression(invalidData, 'weight', 14);
+        expect(result).toBeNull();
+      });
+
+      test('should handle extreme values', () => {
+        const extremeData = mockMeasurements.map(m => ({ ...m, weight: 1000 }));
+        const result = calcService.calculateLinearRegression(extremeData, 'weight', 14);
+        
+        expect(result).toBeDefined();
+        expect(result.slope).toBe(0);
+      });
+
+      test('should handle very recent measurements only', () => {
+        const today = new Date();
+        const recentData = [
+          { date: today.toISOString().split('T')[0], weight: 65, bodyFat: 10, leanMass: 42 },
+          { date: new Date(today.getTime() - 86400000).toISOString().split('T')[0], weight: 65.1, bodyFat: 10.1, leanMass: 42.1 }
+        ];
+        
+        const result = calcService.calculateLinearRegression(recentData, 'weight', 14);
+        expect(result).toBeDefined();
+        expect(result.dataPoints).toBe(2);
+      });
+    });
+  });
 });

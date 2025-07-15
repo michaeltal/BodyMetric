@@ -250,6 +250,207 @@ class CalculationService {
   normalizeHeight(height, isCm) {
     return isCm ? height : height * 2.54;
   }
+
+  calculateLinearRegression(measurements, field, days = 30) {
+    if (!measurements || measurements.length < 2) {
+      return null;
+    }
+
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const recentData = measurements.filter(m => new Date(m.date) >= cutoffDate);
+    
+    if (recentData.length < 2) {
+      return null;
+    }
+
+    const baseDate = new Date(recentData[recentData.length - 1].date);
+    const dataPoints = recentData.map(m => ({
+      x: Math.floor((new Date(m.date) - baseDate) / (1000 * 60 * 60 * 24)),
+      y: m[field],
+      daysAgo: Math.floor((new Date() - new Date(m.date)) / (1000 * 60 * 60 * 24))
+    }));
+
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+    let totalWeight = 0;
+
+    for (const point of dataPoints) {
+      const weight = Math.exp(-point.daysAgo / 10);
+      sumX += point.x * weight;
+      sumY += point.y * weight;
+      sumXY += point.x * point.y * weight;
+      sumX2 += point.x * point.x * weight;
+      sumY2 += point.y * point.y * weight;
+      totalWeight += weight;
+    }
+
+    const slope = (totalWeight * sumXY - sumX * sumY) / (totalWeight * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / totalWeight;
+
+    const yMean = sumY / totalWeight;
+    let ssRes = 0, ssTot = 0;
+
+    for (const point of dataPoints) {
+      const weight = Math.exp(-point.daysAgo / 10);
+      const yPred = slope * point.x + intercept;
+      ssRes += weight * Math.pow(point.y - yPred, 2);
+      ssTot += weight * Math.pow(point.y - yMean, 2);
+    }
+
+    const rSquared = ssTot > 0 ? Math.max(0, 1 - (ssRes / ssTot)) : 0;
+
+    return {
+      slope,
+      intercept,
+      rSquared,
+      dataPoints: dataPoints.length,
+      timeframeDays: days
+    };
+  }
+
+  calculateTrendSlope(measurements, field, days = 30) {
+    const regression = this.calculateLinearRegression(measurements, field, days);
+    return regression ? regression.slope : null;
+  }
+
+  estimateGoalTimeline(measurements, field, currentValue, goalValue, days = 30) {
+    // Check for insufficient data
+    if (!measurements || measurements.length < 2) {
+      return {
+        success: false,
+        reason: 'insufficient_data',
+        currentValue,
+        goalValue
+      };
+    }
+
+    // Check for missing or achieved goal
+    if (!goalValue) {
+      return {
+        success: false,
+        reason: 'no_goal',
+        currentValue,
+        goalValue
+      };
+    }
+
+    if (goalValue === currentValue) {
+      return {
+        success: false,
+        reason: 'goal_achieved',
+        currentValue,
+        goalValue
+      };
+    }
+
+    const regression = this.calculateLinearRegression(measurements, field, days);
+    if (!regression || Math.abs(regression.slope) < 0.001) {
+      return {
+        success: false,
+        reason: 'trend_too_weak',
+        currentValue,
+        goalValue
+      };
+    }
+
+    const remainingChange = goalValue - currentValue;
+    const daysToGoal = Math.ceil(remainingChange / regression.slope);
+
+    if (daysToGoal <= 0) {
+      return {
+        success: false,
+        reason: 'invalid_timeline',
+        currentValue,
+        goalValue
+      };
+    }
+
+    if (daysToGoal > 1000) {
+      return {
+        success: false,
+        reason: 'timeline_too_long',
+        currentValue,
+        goalValue
+      };
+    }
+
+    const confidence = this.getConfidenceLevel(regression.rSquared);
+    const targetDate = new Date(Date.now() + daysToGoal * 24 * 60 * 60 * 1000);
+
+    return {
+      success: true,
+      daysToGoal,
+      targetDate,
+      confidence,
+      rSquared: regression.rSquared,
+      dailyRate: regression.slope,
+      achievable: this.isGoalAchievable(regression.slope, remainingChange),
+      currentValue,
+      goalValue
+    };
+  }
+
+  calculatePredictionConfidence(measurements, field, days = 30) {
+    const regression = this.calculateLinearRegression(measurements, field, days);
+    return regression ? regression.rSquared : 0;
+  }
+
+  getWeightedAverage(measurements, field, days = 30) {
+    if (!measurements || measurements.length === 0) {
+      return null;
+    }
+
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const recentData = measurements.filter(m => new Date(m.date) >= cutoffDate);
+    
+    if (recentData.length === 0) {
+      return null;
+    }
+
+    let weightedSum = 0;
+    let totalWeight = 0;
+
+    for (const measurement of recentData) {
+      const daysAgo = Math.floor((new Date() - new Date(measurement.date)) / (1000 * 60 * 60 * 24));
+      const weight = Math.exp(-daysAgo / 10);
+      weightedSum += measurement[field] * weight;
+      totalWeight += weight;
+    }
+
+    return totalWeight > 0 ? weightedSum / totalWeight : null;
+  }
+
+  getConfidenceLevel(rSquared) {
+    if (rSquared >= 0.7) return 'high';
+    if (rSquared >= 0.4) return 'medium';
+    return 'low';
+  }
+
+  isGoalAchievable(slope, remainingChange) {
+    const sameDirection = (slope > 0 && remainingChange > 0) || (slope < 0 && remainingChange < 0);
+    const reasonableRate = Math.abs(slope) > 0.01;
+    return sameDirection && reasonableRate;
+  }
+
+  formatTimelineEstimate(days, confidence) {
+    if (!days || days <= 0) return null;
+
+    let timeText;
+    if (days <= 30) {
+      timeText = days === 1 ? '1 day' : `${days} days`;
+    } else if (days <= 90) {
+      const weeks = Math.round(days / 7);
+      timeText = weeks === 1 ? '1 week' : `${weeks} weeks`;
+    } else {
+      const months = Math.round(days / 30);
+      timeText = months === 1 ? '1 month' : `${months} months`;
+    }
+
+    return {
+      estimate: `~${timeText}`,
+      confidence,
+      exact: days === 1 ? '1 day' : `${days} days`
+    };
+  }
 }
 
 if (typeof window !== 'undefined') {

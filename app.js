@@ -226,7 +226,7 @@ class BodyCompositionTracker {
   }
 
   updateGoalProgress() {
-    this.goalManager.updateGoalProgress(this.measurements, this.goals, this.useMetric);
+    this.goalManager.updateGoalProgressWithTimeline(this.measurements, this.goals, this.useMetric);
   }
 
 
