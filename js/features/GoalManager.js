@@ -287,7 +287,7 @@ class GoalManager {
       <div class="goal-timeline-container">
         <div class="goal-timeline-estimate ${achievableClass}">
           <span class="timeline-text">${estimate.formatted.estimate}</span>
-          <span class="goal-confidence-indicator ${confidenceClass}">
+          <span class="goal-confidence-indicator ${confidenceClass}" title="${this.getConfidenceTooltip(estimate.confidence)}">
             ${estimate.confidence} confidence
           </span>
         </div>
@@ -334,6 +334,22 @@ class GoalManager {
         message: 'Adjust strategy',
         class: 'status-negative'
       };
+    }
+  }
+
+  /**
+   * Get tooltip text for confidence level
+   */
+  getConfidenceTooltip(confidence) {
+    switch (confidence) {
+      case 'high':
+        return 'Based on a strong and consistent trend in your recent measurements.';
+      case 'medium':
+        return 'Based on a moderate trend in your recent measurements. More data will improve accuracy.';
+      case 'low':
+        return 'Based on a weak or inconsistent trend. The prediction is less reliable.';
+      default:
+        return 'Confidence in this prediction is unknown.';
     }
   }
 

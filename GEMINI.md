@@ -40,20 +40,33 @@ The app runs on `http://localhost:3000` with the Node server.
 - `js/services/DataManager.js`: Handles data persistence, CRUD operations, and server communication.
 - `js/services/CalculationService.js`: Performs BMI calculations, averages, trends, and unit conversions.
 - `js/services/NotificationService.js`: Manages user feedback and error notifications.
-- `js/ModuleLoader.js`: A custom module loader for browser-compatible ES6 modules.
+
+### UI Services
+- `js/ui/UIManager.js`: Manages overall UI updates and state.
+- `js/ui/FormManager.js`: Handles all form interactions, including data entry, validation, and submission.
+- `js/ui/TableManager.js`: Manages the display, sorting, and pagination of measurement data.
+- `js/ui/ChartManager.js`: Responsible for rendering and updating all charts.
+
+### Feature Services
+- `js/features/GoalManager.js`: Manages user-defined goals for weight, body fat, and lean mass.
+- `js/features/ImportExportManager.js`: Handles the import and export of user data.
+- `js/features/InsightsManager.js`: Provides data analysis and insights into user progress.
+- `js/features/UnifiedGoalManager.js`: A newer, more comprehensive goal management system.
 
 ### Documentation & Testing
-- `tests/services/`: Contains unit tests for the services.
+- `tests/services/`: Contains unit tests for the core services.
+- `tests/ui/`: Contains unit tests for the UI components.
+- `tests/features/`: Contains unit tests for the feature modules.
 - `tests/server.test.js`: API endpoint integration tests.
 - `tests/data-persistence.test.js`: Tests for file system and data integrity.
 - `tests/concurrency.test.js`: Concurrent request handling tests.
-- `AGENTS.md`: General development workflow guidelines.
-- `CLAUDE.md`: Specific guidelines for the Claude AI.
 
-## Code Style
+## UI/UX
 
-- **Indentation**: 2 spaces for JavaScript, CSS, and HTML.
-- **Dependencies**: Minimal dependencies. Express and body-parser for the server; Jest and Supertest for testing.
+- **Dashboard**: Centralized view of all key metrics, charts, and goal progress.
+- **Interactive Charts**: Time-series charts for visualizing trends in weight, body fat, and lean mass.
+- **Data Entry Form**: A unified form for entering new measurements, setting goals, and configuring user settings.
+- **Measurement Table**: A paginated and searchable table of all historical data, with options for editing and deleting entries.
 
 ## Testing and Verification
 

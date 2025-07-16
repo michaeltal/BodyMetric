@@ -300,7 +300,7 @@ class UnifiedGoalManager {
       <div class="goal-timeline">
         <div class="goal-timeline-estimate ${achievableClass}">
           <span class="timeline-text">${formatted.estimate}</span>
-          <span class="goal-confidence-indicator ${confidenceClass}">
+          <span class="goal-confidence-indicator ${confidenceClass}" title="${this.getConfidenceTooltip(timeline.confidence)}">
             ${timeline.confidence} confidence
           </span>
         </div>
@@ -411,6 +411,22 @@ class UnifiedGoalManager {
   formatChange(change, unit) {
     const sign = change >= 0 ? '+' : '';
     return `${sign}${change.toFixed(1)} ${unit}`;
+  }
+
+  /**
+   * Get tooltip text for confidence level
+   */
+  getConfidenceTooltip(confidence) {
+    switch (confidence) {
+      case 'high':
+        return 'Based on a strong and consistent trend in your recent measurements.';
+      case 'medium':
+        return 'Based on a moderate trend in your recent measurements. More data will improve accuracy.';
+      case 'low':
+        return 'Based on a weak or inconsistent trend. The prediction is less reliable.';
+      default:
+        return 'Confidence in this prediction is unknown.';
+    }
   }
 
   /**
