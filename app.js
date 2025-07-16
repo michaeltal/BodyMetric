@@ -18,6 +18,7 @@ class BodyCompositionTracker {
     this.importExportManager = null;
     this.insightsManager = null;
     this.chartManager = null;
+    this.unifiedGoalManager = null;
 
     this.init();
   }
@@ -29,12 +30,12 @@ class BodyCompositionTracker {
     this.setupTableManager();
     this.setupImportExportManager();
     this.setupEventListeners();
+    this.setupGoalFormToggle();
     this.uiManager.updateCurrentDate();
     this.uiManager.updateStats(this.measurements, this.useMetric);
     this.updateCharts();
     this.tableManager.updateMeasurements(this.measurements);
-    this.updateInsights();
-    this.updateGoalProgress();
+    this.updateUnifiedGoalProgress();
     this.formManager.setDefaultFormDate();
   }
 
@@ -56,14 +57,13 @@ class BodyCompositionTracker {
         this.uiManager.updateStats(this.measurements, this.useMetric);
         this.updateCharts();
         this.tableManager.updateMeasurements(this.measurements);
-        this.updateInsights();
-        this.updateGoalProgress();
+        this.updateUnifiedGoalProgress();
       },
       onGoalUpdate: () => {
         this.goals = this.dataManager.getGoals();
         this.height = this.dataManager.getHeight();
         this.uiManager.updateStats(this.measurements, this.useMetric);
-        this.updateGoalProgress();
+        this.updateUnifiedGoalProgress();
       },
       onUnitToggle: () => {
         this.useMetric = this.formManager.useMetric;
@@ -104,6 +104,28 @@ class BodyCompositionTracker {
     });
   }
 
+  setupGoalFormToggle() {
+    const toggleButton = document.getElementById('toggleGoalForm');
+    const formContainer = document.getElementById('goalFormContainer');
+    const toggleText = document.getElementById('toggleGoalFormText');
+    
+    if (toggleButton && formContainer && toggleText) {
+      toggleButton.addEventListener('click', () => {
+        const isExpanded = formContainer.classList.contains('expanded');
+        
+        if (isExpanded) {
+          formContainer.classList.remove('expanded');
+          formContainer.classList.add('collapsible');
+          toggleText.textContent = 'Settings';
+        } else {
+          formContainer.classList.remove('collapsible');
+          formContainer.classList.add('expanded');
+          toggleText.textContent = 'Hide Settings';
+        }
+      });
+    }
+  }
+
   async loadServices() {
     const moduleLoader = new ModuleLoader();
     const services = await moduleLoader.loadServices();
@@ -118,6 +140,7 @@ class BodyCompositionTracker {
     this.importExportManager = new services.ImportExportManager(this.dataManager, this.notificationService);
     this.insightsManager = new services.InsightsManager(this.calculationService);
     this.chartManager = new services.ChartManager(this.calculationService);
+    this.unifiedGoalManager = new services.UnifiedGoalManager(this.calculationService, this.dataManager);
     
     console.log('Services loaded successfully');
   }
@@ -221,12 +244,19 @@ class BodyCompositionTracker {
 
 
 
+  updateUnifiedGoalProgress() {
+    this.unifiedGoalManager.updateUnifiedGoalProgress(this.measurements, this.goals, this.useMetric);
+  }
+
+  // Backwards compatibility methods
   updateInsights() {
-    this.insightsManager.updateInsights(this.measurements);
+    console.warn('updateInsights is deprecated, using unified goal progress instead');
+    this.updateUnifiedGoalProgress();
   }
 
   updateGoalProgress() {
-    this.goalManager.updateGoalProgressWithTimeline(this.measurements, this.goals, this.useMetric);
+    console.warn('updateGoalProgress is deprecated, using unified goal progress instead');
+    this.updateUnifiedGoalProgress();
   }
 
 
@@ -244,8 +274,7 @@ class BodyCompositionTracker {
           this.updateCharts();
           this.tableManager.updateMeasurements(this.measurements);
           this.formManager.updateMeasurements(this.measurements);
-          this.updateInsights();
-          this.updateGoalProgress();
+          this.updateUnifiedGoalProgress();
           this.formManager.updateFormAvailability(document.getElementById('measurementDate').value);
 
           this.showNotification('Measurement deleted successfully!', 'success');

@@ -221,46 +221,23 @@
         </div>
       </section>
 
-      <!-- Progress Insights Section -->
-      <section class="section insights-section">
-        <h2>Progress Insights</h2>
-        <div class="insights-grid">
-          <div class="card insight-card">
+      <!-- Unified Goals Section -->
+      <section class="section goals-section">
+        <div class="goals-header">
+          <h2>Your Goals</h2>
+          <button type="button" class="btn btn--secondary" id="toggleGoalForm">
+            <span id="toggleGoalFormText">Settings</span>
+          </button>
+        </div>
+        
+        <div id="unifiedGoalProgress" class="unified-goal-grid">
+          <!-- Unified goal cards will be populated by JavaScript -->
+        </div>
+        
+        <div id="goalFormContainer" class="goal-form-container collapsible">
+          <div class="card">
             <div class="card__header">
-              <h3>7-Day Progress</h3>
-            </div>
-            <div class="card__body">
-              <div class="insight-metrics" id="sevenDayInsights">
-                <!-- Will be populated by JavaScript -->
-              </div>
-            </div>
-          </div>
-
-          <div class="card insight-card">
-            <div class="card__header">
-              <h3>30-Day Progress</h3>
-            </div>
-            <div class="card__body">
-              <div class="insight-metrics" id="thirtyDayInsights">
-                <!-- Will be populated by JavaScript -->
-              </div>
-            </div>
-          </div>
-
-          <div class="card insight-card">
-            <div class="card__header">
-              <h3>90-Day Progress</h3>
-            </div>
-            <div class="card__body">
-              <div class="insight-metrics" id="ninetyDayInsights">
-                <!-- Will be populated by JavaScript -->
-              </div>
-            </div>
-          </div>
-
-          <div class="card insight-card">
-            <div class="card__header">
-              <h3>Your Goals</h3>
+              <h3>Goal Settings</h3>
             </div>
             <div class="card__body">
               <form id="goalsForm" class="goals-form">
@@ -294,8 +271,10 @@
                 </div>
                 <button type="submit" class="btn btn--primary">Save Goals</button>
               </form>
-              <div id="goalProgress" class="goal-progress-container mt-8">
-                <!-- Will be populated by JavaScript -->
+              
+              <!-- Keep existing goalProgress container for backwards compatibility -->
+              <div id="goalProgress" class="goal-progress-container mt-8 hidden">
+                <!-- Will be populated by JavaScript (hidden by default) -->
               </div>
             </div>
           </div>
