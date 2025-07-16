@@ -71,13 +71,35 @@ class UnifiedGoalManager {
     const displayGoal = hasGoal ? this.convertForDisplay(goalValue, field, useMetric) : null;
     
     // Calculate progress only if goal is set
-    const progress = hasGoal ? this.calculationService.calculateGoalProgress(currentValue, goalValue, isBodyFat, measurements) : null;
+    let progress = null;
+    if (hasGoal) {
+      try {
+        progress = this.calculationService.calculateGoalProgress(currentValue, goalValue, isBodyFat, measurements);
+      } catch (error) {
+        console.error('Error calculating goal progress:', error);
+        progress = null;
+      }
+    }
     
     // Calculate insights for this metric (regardless of goal status)
-    const insights = this.calculateInsightsForMetric(measurements, field);
+    let insights = null;
+    try {
+      insights = this.calculateInsightsForMetric(measurements, field);
+    } catch (error) {
+      console.error('Error calculating insights:', error);
+      insights = null;
+    }
     
     // Calculate timeline estimation only if goal is set
-    const timeline = hasGoal ? this.calculationService.estimateGoalTimeline(measurements, field, currentValue, goalValue, 30) : null;
+    let timeline = null;
+    if (hasGoal) {
+      try {
+        timeline = this.calculationService.estimateGoalTimeline(measurements, field, currentValue, goalValue, 30);
+      } catch (error) {
+        console.error('Error calculating timeline:', error);
+        timeline = null;
+      }
+    }
     
     // Render goal card - only include progress section if any goals are set
     return `
@@ -94,25 +116,31 @@ class UnifiedGoalManager {
    * Render goal card header
    */
   renderGoalHeader(label, currentValue, goalValue, unit, hasGoal) {
+    // Handle undefined or null current values
+    const displayCurrent = (currentValue !== undefined && currentValue !== null) ? currentValue.toFixed(1) : 'N/A';
+    
     if (!hasGoal) {
       return `
         <div class="goal-header">
           <h3 class="goal-title">${label}</h3>
           <div class="goal-values">
-            <span class="goal-current">${currentValue.toFixed(1)} ${unit}</span>
+            <span class="goal-current">${displayCurrent} ${unit}</span>
             <span class="goal-no-target clickable" onclick="document.getElementById('toggleGoalForm').click()" title="Click to set goal">No goal set</span>
           </div>
         </div>
       `;
     }
     
+    // Handle undefined or null goal values
+    const displayGoal = (goalValue !== undefined && goalValue !== null) ? goalValue.toFixed(1) : 'N/A';
+    
     return `
       <div class="goal-header">
         <h3 class="goal-title">${label}</h3>
         <div class="goal-values">
-          <span class="goal-current">${currentValue.toFixed(1)} ${unit}</span>
+          <span class="goal-current">${displayCurrent} ${unit}</span>
           <span class="goal-arrow">→</span>
-          <span class="goal-target">${goalValue.toFixed(1)} ${unit}</span>
+          <span class="goal-target">${displayGoal} ${unit}</span>
         </div>
       </div>
     `;
@@ -256,6 +284,17 @@ class UnifiedGoalManager {
     const confidenceClass = `confidence-${timeline.confidence}`;
     const achievableClass = timeline.achievable ? 'achievable' : 'challenging';
     const formatted = this.calculationService.formatTimelineEstimate(timeline.daysToGoal, timeline.confidence);
+    
+    // Handle case where formatting fails
+    if (!formatted || !formatted.estimate) {
+      return `
+        <div class="goal-timeline">
+          <div class="goal-timeline-estimate timeline-info">
+            Timeline estimate not available
+          </div>
+        </div>
+      `;
+    }
     
     return `
       <div class="goal-timeline">
