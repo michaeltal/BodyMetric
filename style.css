@@ -1058,6 +1058,7 @@ select.form-control {
 /* Timeline Estimation Styles */
 .goal-timeline-container {
   margin-top: var(--space-8);
+  margin-bottom: var(--space-16);
   padding: var(--space-12) var(--space-16);
   background: var(--color-surface);
   border-radius: var(--radius-md);
