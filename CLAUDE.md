@@ -30,7 +30,7 @@ The app runs on `http://localhost:3000` with the Node server, or `http://localho
 - **Feature Classes**: GoalManager, ImportExportManager, InsightsManager
 - **Module Loading**: Browser-compatible ES6 module system via ModuleLoader
 - **Visualization**: Chart.js with date-fns adapter for time-series data visualization
-- **Comprehensive Testing**: 336 unit and integration tests ensuring reliability
+- **Comprehensive Testing**: 501 unit and integration tests ensuring reliability
 
 ## Key Files
 
@@ -57,15 +57,20 @@ The app runs on `http://localhost:3000` with the Node server, or `http://localho
 - `js/features/GoalManager.js`: Goal progress calculation and visualization
 - `js/features/ImportExportManager.js`: CSV import/export operations
 - `js/features/InsightsManager.js`: Period-based insights and trend analysis
+- `js/features/UnifiedGoalManager.js`: Unified goal-centric dashboard with integrated insights
 
 ### Documentation & Testing
 - `Refactor/appJS-Refactor.md`: Architecture refactoring documentation
 - `Refactor/Phase2-UI-Plan.md`: Phase 2 UI Management Classes implementation plan
 - `Refactor/Phase3-Features-Plan.md`: Phase 3 Feature Classes implementation plan
-- `tests/services/`: Service unit tests (DataManager, CalculationService, NotificationService, UIManager, FormManager, TableManager, ChartManager, GoalManager, ImportExportManager, InsightsManager)
+- `Refactor/Phase4-Goal-Timeline-Plan.md`: Phase 4 Goal Timeline implementation plan
+- `Refactor/Phase5-Unified-Goal-Plan.md`: Phase 5 Unified Goal-Centric Dashboard plan
+- `tests/services/`: Service unit tests (DataManager, CalculationService, NotificationService, UIManager, FormManager, TableManager, ChartManager, GoalManager, ImportExportManager, InsightsManager, UnifiedGoalManager, ModuleLoader)
 - `tests/server.test.js`: API endpoint integration tests
 - `tests/data-persistence.test.js`: File system and data integrity tests
 - `tests/concurrency.test.js`: Concurrent request handling tests
+- `tests/integration/`: Integration tests for complex feature interactions
+- `tests/Phase5-Testing-Documentation.md`: Comprehensive testing documentation for Phase 5
 - `AGENTS.md`: Development workflow guidelines
 
 ## Code Style
@@ -91,7 +96,7 @@ node server.js
 # Stop with Ctrl+C
 ```
 
-### Test Structure (336 Tests)
+### Test Structure (501 Tests)
 
 #### Core Service Tests
 - `tests/services/DataManager.test.js` - Data persistence and CRUD operation tests
@@ -108,11 +113,15 @@ node server.js
 - `tests/services/GoalManager.test.js` - Goal progress calculation and visualization tests
 - `tests/services/ImportExportManager.test.js` - CSV import/export operation tests
 - `tests/services/InsightsManager.test.js` - Period-based insights and trend analysis tests
+- `tests/services/UnifiedGoalManager.test.js` - Unified goal-centric dashboard tests
+- `tests/services/ModuleLoader.test.js` - Module loading system tests
 
 #### Integration Tests
 - `tests/server.test.js` - API endpoint tests using Supertest
 - `tests/data-persistence.test.js` - File system operations and data integrity tests
 - `tests/concurrency.test.js` - Tests for concurrent request handling and write queue
+- `tests/integration/UnifiedGoalManager.integration.test.js` - UnifiedGoalManager service integration tests
+- `tests/integration/GoalFormToggle.test.js` - Goal form interaction tests
 
 #### Test Infrastructure
 - `tests/fixtures/` - Test data files for consistent testing
@@ -135,10 +144,10 @@ The application manages measurements with the following structure:
 - **CSV Import/Export**: Full CSV functionality with detailed error tracking
 - **Port Configuration**: Use `PORT=8080 node server.js` for custom ports
 - **Modular Architecture**: App refactored from 1,222-line monolith to service-oriented design (78% reduction)
-- **Current State**: Phase 3 complete (Feature Classes) - full modular architecture achieved
+- **Current State**: Phase 5 complete (Unified Goal-Centric Dashboard) - full modular architecture with integrated dashboard achieved
 - **Refactoring History**: See `Refactor/appJS-Refactor.md` for architectural evolution
 - **AI Generated**: All code created by AI tools (noted in README)
 
 ---
 
-Last update: July 10, 2025
+Last update: July 19, 2025
