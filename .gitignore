@@ -5,3 +5,4 @@ coverage/
 tests/test-data.json
 tests/persistence-test-data.json
 tests/test-static.txt
+.DS_Store

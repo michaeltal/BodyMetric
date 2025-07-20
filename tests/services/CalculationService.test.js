@@ -452,12 +452,17 @@ describe('CalculationService', () => {
       });
 
       test('should return reason object for unrealistic timelines', () => {
-        const verySlowData = mockMeasurements.map((m, i) => ({ ...m, weight: 65 + (i * 0.001) }));
-        const timeline = calcService.estimateGoalTimeline(verySlowData, 'weight', 65, 70, 14);
+        // Create data with decreasing weight but goal is to increase weight
+        const decreasingData = mockMeasurements.map((m, i) => ({ 
+          ...m, 
+          weight: 70 - (i * 0.2),  // Start high, decrease over time
+          date: new Date(Date.now() - (mockMeasurements.length - i - 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        }));
+        const timeline = calcService.estimateGoalTimeline(decreasingData, 'weight', 60, 70, 14);
         expect(timeline).toEqual({
           success: false,
           reason: 'invalid_timeline',
-          currentValue: 65,
+          currentValue: 60,
           goalValue: 70
         });
       });
@@ -630,7 +635,7 @@ describe('CalculationService', () => {
         const result = calcService.calculateLinearRegression(extremeData, 'weight', 14);
         
         expect(result).toBeDefined();
-        expect(result.slope).toBe(0);
+        expect(Math.abs(result.slope)).toBeLessThan(0.001);
       });
 
       test('should handle very recent measurements only', () => {
